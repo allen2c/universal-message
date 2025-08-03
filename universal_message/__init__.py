@@ -623,65 +623,178 @@ def return_response_function_tool_call(
 def return_response_function_call_output(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> FunctionCallOutput | None:
-    raise NotImplementedError()
+    if "call_id" not in message or "output" not in message or "type" not in message:
+        return None
+    if message["type"] != "function_call_output":
+        return None
+    if "status" in message and message["status"] not in (
+        "in_progress",
+        "completed",
+        "incomplete",
+    ):
+        return None
+    return message  # type: ignore
 
 
 def return_response_reasoning_item(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseReasoningItemParam | None:
-    raise NotImplementedError()
+    if "id" not in message or "summary" not in message or "type" not in message:
+        return None
+    if message["type"] != "reasoning":
+        return None
+    if "status" in message and message["status"] not in (
+        "in_progress",
+        "completed",
+        "incomplete",
+    ):
+        return None
+    return message  # type: ignore
 
 
 def return_response_image_generation_call(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ImageGenerationCall | None:
-    raise NotImplementedError()
+    if (
+        "id" not in message
+        or "result" not in message
+        or "status" not in message
+        or "type" not in message
+    ):
+        return None
+    if message["type"] != "image_generation_call":
+        return None
+    if message["status"] not in ("in_progress", "completed", "generating", "failed"):
+        return None
+    return message  # type: ignore
 
 
 def return_response_code_interpreter_tool_call(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseCodeInterpreterToolCallParam | None:
-    raise NotImplementedError()
+    if (
+        "id" not in message
+        or "code" not in message
+        or "container_id" not in message
+        or "outputs" not in message
+        or "status" not in message
+        or "type" not in message
+    ):
+        return None
+    if message["type"] != "code_interpreter_call":
+        return None
+    if message["status"] not in (
+        "in_progress",
+        "completed",
+        "incomplete",
+        "interpreting",
+        "failed",
+    ):
+        return None
+    return message  # type: ignore
 
 
 def return_response_local_shell_call(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> LocalShellCall | None:
-    raise NotImplementedError()
+    if (
+        "id" not in message
+        or "action" not in message
+        or "call_id" not in message
+        or "status" not in message
+        or "type" not in message
+    ):
+        return None
+    if message["type"] != "local_shell_call":
+        return None
+    if message["status"] not in ("in_progress", "completed", "incomplete"):
+        return None
+    return message  # type: ignore
 
 
 def return_response_local_shell_call_output(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> LocalShellCallOutput | None:
-    raise NotImplementedError()
+    if "id" not in message or "output" not in message or "type" not in message:
+        return None
+    if message["type"] != "local_shell_call_output":
+        return None
+    if "status" in message and message["status"] not in (
+        "in_progress",
+        "completed",
+        "incomplete",
+    ):
+        return None
+    return message  # type: ignore
 
 
 def return_response_mcp_list_tools(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> McpListTools | None:
-    raise NotImplementedError()
+    if (
+        "id" not in message
+        or "server_label" not in message
+        or "tools" not in message
+        or "type" not in message
+    ):
+        return None
+    if message["type"] != "mcp_list_tools":
+        return None
+    return message  # type: ignore
 
 
 def return_response_mcp_approval_request(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> McpApprovalRequest | None:
-    raise NotImplementedError()
+    if (
+        "id" not in message
+        or "arguments" not in message
+        or "name" not in message
+        or "server_label" not in message
+        or "type" not in message
+    ):
+        return None
+    if message["type"] != "mcp_approval_request":
+        return None
+    return message  # type: ignore
 
 
 def return_response_mcp_approval_response(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> McpApprovalResponse | None:
-    raise NotImplementedError()
+    if (
+        "approval_request_id" not in message
+        or "approve" not in message
+        or "type" not in message
+    ):
+        return None
+    if message["type"] != "mcp_approval_response":
+        return None
+    return message  # type: ignore
 
 
 def return_response_mcp_call(message: OPENAI_MESSAGE_PARAM_TYPES) -> McpCall | None:
-    raise NotImplementedError()
+    if (
+        "id" not in message
+        or "arguments" not in message
+        or "name" not in message
+        or "server_label" not in message
+        or "type" not in message
+    ):
+        return None
+    if message["type"] != "mcp_call":
+        return None
+    return message  # type: ignore
 
 
 def return_response_item_reference(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ItemReference | None:
-    raise NotImplementedError()
+    if "id" not in message or "type" not in message:
+        return None
+    if message["type"] != "item_reference":
+        return None
+    return message  # type: ignore
 
 
 def return_response_input_message_content_list(
@@ -693,43 +806,83 @@ def return_response_input_message_content_list(
 def return_response_computer_tool_call_output_screenshot(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseComputerToolCallOutputScreenshotParam | None:
-    raise NotImplementedError()
+    if "type" not in message:
+        return None
+    if message["type"] != "computer_screenshot":
+        return None
+    if "file_id" not in message and "image_url" not in message:
+        return None
+    return message  # type: ignore
 
 
 def return_chat_cmpl_tool_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionToolMessageParam | None:
-    raise NotImplementedError()
+    if (
+        "content" not in message
+        or "role" not in message
+        or "tool_call_id" not in message
+    ):
+        return None
+    if message["role"] != "tool":
+        return None
+    return message  # type: ignore
 
 
 def return_chat_cmpl_user_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionUserMessageParam | None:
-    raise NotImplementedError()
+    if "content" not in message or "role" not in message:
+        return None
+    if message["role"] != "user":
+        return None
+    return message  # type: ignore
 
 
 def return_chat_cmpl_system_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionSystemMessageParam | None:
-    raise NotImplementedError()
+    if "content" not in message or "role" not in message:
+        return None
+    if message["role"] != "system":
+        return None
+    return message  # type: ignore
 
 
 def return_chat_cmpl_function_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionFunctionMessageParam | None:
-    raise NotImplementedError()
+    if "content" not in message or "name" not in message or "role" not in message:
+        return None
+    if message["role"] != "function":
+        return None
+    return message  # type: ignore
 
 
 def return_chat_cmpl_assistant_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionAssistantMessageParam | None:
-    raise NotImplementedError()
+    if "role" not in message:
+        return None
+    if message["role"] != "assistant":
+        return None
+    if (
+        "content" not in message
+        and "tool_calls" not in message
+        and "function_call" not in message
+    ):
+        return None
+    return message  # type: ignore
 
 
 def return_chat_cmpl_developer_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionDeveloperMessageParam | None:
-    raise NotImplementedError()
+    if "content" not in message or "role" not in message:
+        return None
+    if message["role"] != "developer":
+        return None
+    return message  # type: ignore
 
 
 def _ensure_tz(tz: zoneinfo.ZoneInfo | str | None) -> zoneinfo.ZoneInfo:
