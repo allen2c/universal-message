@@ -4,14 +4,11 @@ import typing
 
 import pydantic
 
+from universal_message._id import generate_object_id
+
 __version__ = pathlib.Path(__file__).parent.joinpath("VERSION").read_text().strip()
 
-
-class Message(pydantic.BaseModel):
-    role: typing.Literal["user", "assistant", "system", "developer"] | str
-    content: str | typing.List[str]
-
-
+PRIMITIVE_TYPES: typing.TypeAlias = typing.Union[str, int, float, bool, None]
 MIME_TYPE_TYPES: typing.TypeAlias = (
     typing.Literal[
         "text/plain",
@@ -94,3 +91,20 @@ class DataURL(pydantic.BaseModel):
         if self.encoded == "base64":
             return base64.b64decode(self.data).decode("utf-8")
         return self.data
+
+
+class Message(pydantic.BaseModel):
+    # Required fields
+    role: typing.Literal["user", "assistant", "system", "developer", "tool"] | str
+    content: typing.Union[
+        str,
+        DataURL,
+        pydantic.HttpUrl,
+        typing.List[typing.Union[str, DataURL, pydantic.HttpUrl]],
+    ]
+
+    # Optional fields
+    id: str = pydantic.Field(default_factory=generate_object_id)
+    call_id: typing.Optional[str] = None
+    created_at: typing.Optional[int] = None
+    metadata: typing.Optional[typing.Dict[str, PRIMITIVE_TYPES]] = None
