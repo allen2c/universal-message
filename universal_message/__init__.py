@@ -1,17 +1,25 @@
 import base64
 import datetime
+import logging
 import pathlib
+import re
 import textwrap
 import time
 import typing
+import urllib.parse
 import zoneinfo
 
 import jinja2
 import pydantic
+from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
+from openai.types.responses import ResponseInputItemParam
+from rich.pretty import pretty_repr
 
 from universal_message._id import generate_object_id
 
 __version__ = pathlib.Path(__file__).parent.joinpath("VERSION").read_text().strip()
+
+logger = logging.getLogger(__name__)
 
 PRIMITIVE_TYPES: typing.TypeAlias = typing.Union[str, int, float, bool, None]
 MIME_TYPE_TYPES: typing.TypeAlias = (
@@ -30,6 +38,26 @@ MIME_TYPE_TYPES: typing.TypeAlias = (
 )
 
 
+DATA_URL_PATTERN = re.compile(
+    r"""
+    ^data:
+    (?P<mediatype>[^;,]*)  # optional MIME type
+    (?:  # whole parameter section
+        ;  # ← semicolon stays here
+        (?P<params>
+            [^;,=]+=[^;,]*  # first attr=value
+            (?:;[^;,=]+=[^;,]*)*  # 0-n more ;attr=value
+        )
+    )?  # entire param list is optional
+    (?P<base64>;base64)?  # optional ;base64 flag
+    ,
+    (?P<payload>.*)  # everything after the first comma
+    \Z
+    """,
+    re.I | re.S | re.VERBOSE,
+)
+
+
 class DataURL(pydantic.BaseModel):
     """RFC 2397: `data:[<mediatype>][;<parameter>][;base64],<data>`
 
@@ -38,13 +66,16 @@ class DataURL(pydantic.BaseModel):
 
     mime_type: MIME_TYPE_TYPES
     parameters: str | None = None
-    encoded: typing.Literal["base64"] = "base64"
+    encoded: typing.Literal["base64"] | None = "base64"
     data: str
 
     @pydantic.model_validator(mode="after")
     def validate_parameters(self) -> typing.Self:
         if self.parameters is None:
             return self
+
+        if self.parameters.startswith(";"):
+            self.parameters = self.parameters.lstrip(";")
 
         parts = self.parameters.split(";")
         for part in parts:
@@ -62,6 +93,20 @@ class DataURL(pydantic.BaseModel):
     @pydantic.model_serializer
     def serialize_model(self) -> str:
         return self.url
+
+    @classmethod
+    def is_data_url(cls, url: str) -> bool:
+        """
+        Return **True** iff *url* is syntactically a data-URL.
+        """
+        return bool(DATA_URL_PATTERN.match(url))
+
+    @classmethod
+    def from_url(cls, url: str) -> "DataURL":
+        mime_type, parameters, encoded, data = cls.__parse_url(url)
+        return cls(
+            mime_type=mime_type, parameters=parameters, encoded=encoded, data=data
+        )
 
     @classmethod
     def from_data(
@@ -97,6 +142,45 @@ class DataURL(pydantic.BaseModel):
             return base64.b64decode(self.data).decode("utf-8")
         return self.data
 
+    @classmethod
+    def __parse_url(cls, url: str) -> typing.Tuple[
+        str,
+        str | None,
+        typing.Literal["base64"] | None,
+        str,
+    ]:
+        """
+        Parse *url* (which **must** be a data URL) and return a 4-tuple:
+
+            (mime_type, parameters, encoded, data)
+
+        * **mime_type** – the media type as a string (defaults to ``text/plain``);
+        * **parameters** – dict of any ``;attr=value`` pairs (e.g. ``charset``);
+        * **encoded** – ``True`` if the ``;base64`` flag was present;
+        * **data** – the payload as raw *bytes* (already URL-unescaped and
+        Base-64-decoded if needed).
+
+        Raises ``ValueError`` if *url* is not a valid data URL.
+        """
+        m = DATA_URL_PATTERN.match(url)
+        if not m:
+            raise ValueError("Not a valid data URL")
+
+        mime_type: str = m.group("mediatype") or "text/plain"
+
+        params: str | None = m.group("params")
+        try:
+            urllib.parse.parse_qsl(params)
+        except ValueError as e:
+            logger.warning(f"Invalid parameters in data URL, ignored: {pretty_repr(e)}")
+            params = None
+
+        encoded = bool(m.group("base64"))
+
+        raw: str = m.group("payload")
+
+        return (mime_type, params, "base64" if encoded else None, raw)
+
 
 class Message(pydantic.BaseModel):
     # Required fields
@@ -113,6 +197,20 @@ class Message(pydantic.BaseModel):
     call_id: typing.Optional[str] = None
     created_at: int = pydantic.Field(default_factory=lambda: int(time.time()))
     metadata: typing.Optional[typing.Dict[str, PRIMITIVE_TYPES]] = None
+
+    def from_any(
+        self,
+        data: (
+            str
+            | DataURL
+            | pydantic.HttpUrl
+            | pydantic.BaseModel
+            | ResponseInputItemParam
+            | ChatCompletionMessageParam
+            | typing.Dict
+        ),
+    ) -> "Message":
+        raise NotImplementedError("Not implemented")
 
     def to_instructions(
         self, *, with_datetime: bool = False, tz: zoneinfo.ZoneInfo | str | None = None
@@ -137,6 +235,12 @@ class Message(pydantic.BaseModel):
             content=_content,
         ).strip()
 
+    def to_responses_input_item(self) -> ResponseInputItemParam:
+        raise NotImplementedError("Not implemented")
+
+    def to_chat_cmpl_message(self) -> ChatCompletionMessageParam:
+        raise NotImplementedError("Not implemented")
+
 
 def messages_to_instructions(
     messages: typing.List[Message],
@@ -148,6 +252,18 @@ def messages_to_instructions(
         message.to_instructions(with_datetime=with_datetime, tz=tz)
         for message in messages
     )
+
+
+def messages_to_responses_input_items(
+    messages: typing.List[Message],
+) -> typing.List[ResponseInputItemParam]:
+    return [message.to_responses_input_item() for message in messages]
+
+
+def messages_to_chat_cmpl_messages(
+    messages: typing.List[Message],
+) -> typing.List[ChatCompletionMessageParam]:
+    return [message.to_chat_cmpl_message() for message in messages]
 
 
 def _ensure_tz(tz: zoneinfo.ZoneInfo | str | None) -> zoneinfo.ZoneInfo:
