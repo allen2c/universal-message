@@ -7,20 +7,20 @@ dependencies = [
   "pydantic (>=2)",
   "str-or-none",
 ]
-description = "AllenChou's Python template."
+description = "Message for Universal LLM Usage"
 license = { text = "MIT" }
-name = "ac-py-template"
+name = "universal-message"
 readme = "README.md"
 requires-python = ">=3.11,<4"
 version = "0.1.0"
 
 [project.urls]
-Homepage = "https://github.com/allen2c/ac-py-template"
-"PyPI" = "https://pypi.org/project/ac-py-template/"
-Repository = "https://github.com/allen2c/ac-py-template"
+Homepage = "https://github.com/allen2c/universal-message"
+"PyPI" = "https://pypi.org/project/universal-message/"
+Repository = "https://github.com/allen2c/universal-message"
 
 [tool.poetry]
-packages = [{ include = "ac_py_template" }]
+packages = [{ include = "universal_message" }]
 
 [tool.poetry.extras]
 all = []
