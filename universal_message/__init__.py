@@ -39,6 +39,28 @@ class DataURL(pydantic.BaseModel):
     encoded: typing.Literal["base64"] = "base64"
     data: str
 
+    @pydantic.model_validator(mode="after")
+    def validate_parameters(self) -> typing.Self:
+        if self.parameters is None:
+            return self
+
+        parts = self.parameters.split(";")
+        for part in parts:
+            if not part:
+                continue
+            if "=" not in part:
+                raise ValueError(f"Invalid parameter format for '{part}': missing '='")
+            key, value = part.split("=", 1)
+            if not key.strip() or not value.strip():
+                raise ValueError(
+                    f"Invalid parameter format for '{part}': empty key or value"
+                )
+        return self
+
+    @pydantic.model_serializer
+    def serialize_model(self) -> str:
+        return self.url
+
     @classmethod
     def from_data(
         cls,
