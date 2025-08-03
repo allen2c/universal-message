@@ -11,8 +11,71 @@ import zoneinfo
 
 import jinja2
 import pydantic
+from openai.types.chat.chat_completion_assistant_message_param import (
+    ChatCompletionAssistantMessageParam,
+)
+from openai.types.chat.chat_completion_developer_message_param import (
+    ChatCompletionDeveloperMessageParam,
+)
+from openai.types.chat.chat_completion_function_message_param import (
+    ChatCompletionFunctionMessageParam,
+)
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
-from openai.types.responses import ResponseInputItemParam
+from openai.types.chat.chat_completion_system_message_param import (
+    ChatCompletionSystemMessageParam,
+)
+from openai.types.chat.chat_completion_tool_message_param import (
+    ChatCompletionToolMessageParam,
+)
+from openai.types.chat.chat_completion_user_message_param import (
+    ChatCompletionUserMessageParam,
+)
+from openai.types.responses.easy_input_message_param import EasyInputMessageParam
+from openai.types.responses.response_code_interpreter_tool_call_param import (
+    ResponseCodeInterpreterToolCallParam,
+)
+from openai.types.responses.response_computer_tool_call_output_screenshot_param import (
+    ResponseComputerToolCallOutputScreenshotParam,
+)
+from openai.types.responses.response_computer_tool_call_param import (
+    ResponseComputerToolCallParam,
+)
+from openai.types.responses.response_file_search_tool_call_param import (
+    ResponseFileSearchToolCallParam,
+)
+from openai.types.responses.response_function_tool_call_param import (
+    ResponseFunctionToolCallParam,
+)
+from openai.types.responses.response_function_web_search_param import (
+    ResponseFunctionWebSearchParam,
+)
+from openai.types.responses.response_input_item_param import (
+    ComputerCallOutput,
+    FunctionCallOutput,
+    ImageGenerationCall,
+    ItemReference,
+    LocalShellCall,
+    LocalShellCallOutput,
+    McpApprovalRequest,
+    McpApprovalResponse,
+    McpCall,
+    McpListTools,
+)
+from openai.types.responses.response_input_item_param import (
+    Message as ResponseInputMessageParam,
+)
+from openai.types.responses.response_input_item_param import (
+    ResponseInputItemParam,
+)
+from openai.types.responses.response_input_message_content_list_param import (
+    ResponseInputMessageContentListParam,
+)
+from openai.types.responses.response_output_message_param import (
+    ResponseOutputMessageParam,
+)
+from openai.types.responses.response_reasoning_item_param import (
+    ResponseReasoningItemParam,
+)
 from rich.pretty import pretty_repr
 
 from universal_message._id import generate_object_id
@@ -36,6 +99,11 @@ MIME_TYPE_TYPES: typing.TypeAlias = (
     ]
     | str
 )
+OPENAI_MESSAGE_PARAM_TYPES: typing.TypeAlias = typing.Union[
+    ResponseInputItemParam,
+    ChatCompletionMessageParam,
+    typing.Dict,
+]
 
 
 DATA_URL_PATTERN = re.compile(
@@ -198,20 +266,78 @@ class Message(pydantic.BaseModel):
     created_at: int = pydantic.Field(default_factory=lambda: int(time.time()))
     metadata: typing.Optional[typing.Dict[str, PRIMITIVE_TYPES]] = None
 
+    @classmethod
     def from_any(
-        self,
+        cls,
         data: (
             str
             | DataURL
             | pydantic.HttpUrl
             | pydantic.BaseModel
-            | ResponseInputItemParam
-            | ChatCompletionMessageParam
-            | typing.Dict
+            | OPENAI_MESSAGE_PARAM_TYPES
         ),
     ) -> "Message":
         """Create message from various input types."""
-        raise NotImplementedError("Not implemented")
+        if isinstance(data, str):
+            return Message(role="user", content=data)
+        if isinstance(data, DataURL):
+            return Message(role="user", content=data)
+        if isinstance(data, pydantic.HttpUrl):
+            return Message(role="user", content=data)
+        if isinstance(data, pydantic.BaseModel):
+            return cls.model_validate_json(data.model_dump_json())
+        if m := return_response_easy_input_message(data):
+            raise NotImplementedError()
+        if m := return_response_input_message(data):
+            raise NotImplementedError()
+        if m := return_response_output_message(data):
+            raise NotImplementedError()
+        if m := return_response_file_search_tool_call(data):
+            raise NotImplementedError()
+        if m := return_response_computer_tool_call(data):
+            raise NotImplementedError()
+        if m := return_response_computer_call_output(data):
+            raise NotImplementedError()
+        if m := return_response_function_web_search(data):
+            raise NotImplementedError()
+        if m := return_response_function_tool_call(data):
+            raise NotImplementedError()
+        if m := return_response_function_call_output(data):
+            raise NotImplementedError()
+        if m := return_response_reasoning_item(data):
+            raise NotImplementedError()
+        if m := return_response_image_generation_call(data):
+            raise NotImplementedError()
+        if m := return_response_code_interpreter_tool_call(data):
+            raise NotImplementedError()
+        if m := return_response_local_shell_call(data):
+            raise NotImplementedError()
+        if m := return_response_local_shell_call_output(data):
+            raise NotImplementedError()
+        if m := return_response_mcp_list_tools(data):
+            raise NotImplementedError()
+        if m := return_response_mcp_approval_request(data):
+            raise NotImplementedError()
+        if m := return_response_mcp_approval_response(data):
+            raise NotImplementedError()
+        if m := return_response_mcp_call(data):
+            raise NotImplementedError()
+        if m := return_response_item_reference(data):
+            raise NotImplementedError()
+        if m := return_chat_cmpl_tool_message(data):
+            raise NotImplementedError()
+        if m := return_chat_cmpl_user_message(data):
+            raise NotImplementedError()
+        if m := return_chat_cmpl_system_message(data):
+            raise NotImplementedError()
+        if m := return_chat_cmpl_function_message(data):
+            raise NotImplementedError()
+        if m := return_chat_cmpl_assistant_message(data):
+            raise NotImplementedError()
+        if m := return_chat_cmpl_developer_message(data):
+            raise NotImplementedError()
+
+        return cls.model_validate(data)
 
     def to_instructions(
         self, *, with_datetime: bool = False, tz: zoneinfo.ZoneInfo | str | None = None
@@ -271,6 +397,166 @@ def messages_to_chat_cmpl_messages(
 ) -> typing.List[ChatCompletionMessageParam]:
     """Convert messages to OpenAI chat completion format."""
     return [message.to_chat_cmpl_message() for message in messages]
+
+
+def return_response_easy_input_message(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> EasyInputMessageParam | None:
+    raise NotImplementedError("Not implemented")
+
+
+def return_response_input_message(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ResponseInputMessageParam | None:
+    raise NotImplementedError("Not implemented")
+
+
+def return_response_output_message(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ResponseOutputMessageParam | None:
+    raise NotImplementedError("Not implemented")
+
+
+def return_response_file_search_tool_call(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ResponseFileSearchToolCallParam | None:
+    raise NotImplementedError("Not implemented")
+
+
+def return_response_computer_tool_call(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ResponseComputerToolCallParam | None:
+    raise NotImplementedError()
+
+
+def return_response_computer_call_output(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ComputerCallOutput | None:
+    raise NotImplementedError()
+
+
+def return_response_function_web_search(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ResponseFunctionWebSearchParam | None:
+    raise NotImplementedError()
+
+
+def return_response_function_tool_call(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ResponseFunctionToolCallParam | None:
+    raise NotImplementedError()
+
+
+def return_response_function_call_output(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> FunctionCallOutput | None:
+    raise NotImplementedError()
+
+
+def return_response_reasoning_item(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ResponseReasoningItemParam | None:
+    raise NotImplementedError()
+
+
+def return_response_image_generation_call(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ImageGenerationCall | None:
+    raise NotImplementedError()
+
+
+def return_response_code_interpreter_tool_call(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ResponseCodeInterpreterToolCallParam | None:
+    raise NotImplementedError()
+
+
+def return_response_local_shell_call(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> LocalShellCall | None:
+    raise NotImplementedError()
+
+
+def return_response_local_shell_call_output(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> LocalShellCallOutput | None:
+    raise NotImplementedError()
+
+
+def return_response_mcp_list_tools(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> McpListTools | None:
+    raise NotImplementedError()
+
+
+def return_response_mcp_approval_request(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> McpApprovalRequest | None:
+    raise NotImplementedError()
+
+
+def return_response_mcp_approval_response(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> McpApprovalResponse | None:
+    raise NotImplementedError()
+
+
+def return_response_mcp_call(message: OPENAI_MESSAGE_PARAM_TYPES) -> McpCall | None:
+    raise NotImplementedError()
+
+
+def return_response_item_reference(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ItemReference | None:
+    raise NotImplementedError()
+
+
+def return_response_input_message_content_list(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ResponseInputMessageContentListParam | None:
+    raise NotImplementedError()
+
+
+def return_response_computer_tool_call_output_screenshot(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ResponseComputerToolCallOutputScreenshotParam | None:
+    raise NotImplementedError()
+
+
+def return_chat_cmpl_tool_message(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ChatCompletionToolMessageParam | None:
+    raise NotImplementedError()
+
+
+def return_chat_cmpl_user_message(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ChatCompletionUserMessageParam | None:
+    raise NotImplementedError()
+
+
+def return_chat_cmpl_system_message(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ChatCompletionSystemMessageParam | None:
+    raise NotImplementedError()
+
+
+def return_chat_cmpl_function_message(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ChatCompletionFunctionMessageParam | None:
+    raise NotImplementedError()
+
+
+def return_chat_cmpl_assistant_message(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ChatCompletionAssistantMessageParam | None:
+    raise NotImplementedError()
+
+
+def return_chat_cmpl_developer_message(
+    message: OPENAI_MESSAGE_PARAM_TYPES,
+) -> ChatCompletionDeveloperMessageParam | None:
+    raise NotImplementedError()
 
 
 def _ensure_tz(tz: zoneinfo.ZoneInfo | str | None) -> zoneinfo.ZoneInfo:
