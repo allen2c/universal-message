@@ -49,6 +49,9 @@ from openai.types.responses.response_function_tool_call_param import (
 from openai.types.responses.response_function_web_search_param import (
     ResponseFunctionWebSearchParam,
 )
+from openai.types.responses.response_input_content_param import (
+    ResponseInputContentParam,
+)
 from openai.types.responses.response_input_item_param import (
     ComputerCallOutput,
     FunctionCallOutput,
@@ -245,6 +248,16 @@ class DataURL(pydantic.BaseModel):
         return (mime_type, params, "base64" if encoded else None, raw)
 
 
+MESSAGE_CONTENT_SIMPLE_TYPES: typing.TypeAlias = typing.Union[
+    str, DataURL, pydantic.HttpUrl
+]
+MESSAGE_CONTENT_LIST_TYPES: typing.TypeAlias = typing.List[MESSAGE_CONTENT_SIMPLE_TYPES]
+MESSAGE_CONTENT_TYPES: typing.TypeAlias = typing.Union[
+    MESSAGE_CONTENT_SIMPLE_TYPES,
+    MESSAGE_CONTENT_LIST_TYPES,
+]
+
+
 class Message(pydantic.BaseModel):
     """Universal message format for AI interactions.
 
@@ -253,12 +266,7 @@ class Message(pydantic.BaseModel):
 
     # Required fields
     role: typing.Literal["user", "assistant", "system", "developer", "tool"] | str
-    content: typing.Union[
-        str,
-        DataURL,
-        pydantic.HttpUrl,
-        typing.List[typing.Union[str, DataURL, pydantic.HttpUrl]],
-    ]
+    content: MESSAGE_CONTENT_TYPES
 
     # Optional fields
     id: str = pydantic.Field(default_factory=generate_object_id)
@@ -287,7 +295,12 @@ class Message(pydantic.BaseModel):
         if isinstance(data, pydantic.BaseModel):
             return cls.model_validate_json(data.model_dump_json())
         if m := return_response_easy_input_message(data):
-            raise NotImplementedError()
+            _content = (
+                content_from_response_input_content_list_param(m["content"])
+                if isinstance(m["content"], list)
+                else content_from_response_input_content_param(m["content"])
+            )
+            return cls.model_validate({"role": m["role"], "content": _content})
         if m := return_response_input_message(data):
             raise NotImplementedError()
         if m := return_response_output_message(data):
@@ -883,6 +896,34 @@ def return_chat_cmpl_developer_message(
     if message["role"] != "developer":
         return None
     return message  # type: ignore
+
+
+def content_from_response_input_content_param(
+    content: str | ResponseInputContentParam,
+) -> MESSAGE_CONTENT_SIMPLE_TYPES:
+    if isinstance(content, str):
+        return content
+    if content["type"] == "input_text":
+        return content["text"]
+    elif content["type"] == "input_image":
+        return pretty_repr(
+            content.get("file_id") or content.get("image_url"), max_string=127
+        ).strip("'\"")
+    elif content["type"] == "input_file":
+        return pretty_repr(
+            content.get("file_id")
+            or content.get("file_url")
+            or content.get("file_data"),
+            max_string=127,
+        ).strip("'\"")
+    else:
+        raise ValueError(f"Invalid content type: {content['type']}")
+
+
+def content_from_response_input_content_list_param(
+    content: ResponseInputMessageContentListParam,
+) -> MESSAGE_CONTENT_LIST_TYPES:
+    return [content_from_response_input_content_param(item) for item in content]
 
 
 def _ensure_tz(tz: zoneinfo.ZoneInfo | str | None) -> zoneinfo.ZoneInfo:
