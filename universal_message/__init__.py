@@ -399,22 +399,129 @@ def messages_to_chat_cmpl_messages(
     return [message.to_chat_cmpl_message() for message in messages]
 
 
+def is_response_input_message_content_list_param(
+    content: typing.List[typing.Dict],
+) -> bool:
+    if len(content) == 0:
+        return False  # Empty list, invalid message content
+    if any(
+        is_response_input_file_param(item)
+        or is_response_input_text_param(item)
+        or is_response_input_image_param(item)
+        for item in content
+    ):
+        return True
+    return False
+
+
+def is_response_input_file_param(content: typing.Dict) -> bool:
+    if "type" in content and content["type"] == "input_file":
+        return True
+    return False
+
+
+def is_response_input_text_param(content: typing.Dict) -> bool:
+    if "type" in content and content["type"] == "input_text":
+        return True
+    return False
+
+
+def is_response_input_image_param(content: typing.Dict) -> bool:
+    if "type" in content and content["type"] == "input_image":
+        return True
+    return False
+
+
+def is_response_output_text_param(content: typing.Dict) -> bool:
+    if (
+        "annotations" in content
+        and "text" in content
+        and "type" in content
+        and content["type"] == "output_text"
+        and isinstance(content["annotations"], list)
+        and all("type" in item for item in content["annotations"])
+        and any(
+            item["type"]
+            in ("file_citation", "url_citation", "container_file_citation", "file_path")
+            for item in content["annotations"]
+        )
+    ):
+        return True
+    return False
+
+
 def return_response_easy_input_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> EasyInputMessageParam | None:
-    raise NotImplementedError("Not implemented")
+    # Check required fields
+    if "role" not in message or "content" not in message:
+        return None
+    # Check type: message
+    if message.get("type") != "message":
+        return None
+    # Check roles
+    if message["role"] not in ("user", "assistant", "system", "developer"):
+        return None
+    if message.get("status"):  # go `ResponseInputMessageParam`
+        return None
+    # Check content: list of input items
+    if isinstance(message["content"], str):
+        return message  # type: ignore
+    elif isinstance(message["content"], list):
+        if is_response_input_message_content_list_param(message["content"]):  # type: ignore  # noqa: E501
+            return message  # type: ignore
+        else:
+            return None
+    else:
+        return None
 
 
 def return_response_input_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseInputMessageParam | None:
-    raise NotImplementedError("Not implemented")
+    # Check required fields
+    if "role" not in message or "content" not in message:
+        return None
+    # Check type: message
+    if message.get("type") != "message":
+        return None
+    # Check roles
+    if message["role"] not in ("user", "system", "developer"):
+        return None
+    # Check content: list of input items
+    if isinstance(message["content"], list):
+        if is_response_input_message_content_list_param(message["content"]):  # type: ignore  # noqa: E501
+            return message  # type: ignore
+        else:
+            return None
+    else:
+        return None
 
 
 def return_response_output_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseOutputMessageParam | None:
-    raise NotImplementedError("Not implemented")
+    if (
+        "id" not in message
+        or "content" not in message
+        or "role" not in message
+        or "status" not in message
+        or "type" not in message
+    ):
+        return None
+    if message["role"] != "assistant":
+        return None
+    if message["status"] not in ("in_progress", "completed", "incomplete"):
+        return None
+    if message["type"] != "message":
+        return None
+    if isinstance(message["content"], list):
+        if all(is_response_output_text_param(item) for item in message["content"]):  # type: ignore  # noqa: E501
+            return message  # type: ignore
+        else:
+            return None
+    else:
+        return None
 
 
 def return_response_file_search_tool_call(
