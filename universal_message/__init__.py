@@ -59,9 +59,10 @@ DATA_URL_PATTERN = re.compile(
 
 
 class DataURL(pydantic.BaseModel):
-    """RFC 2397: `data:[<mediatype>][;<parameter>][;base64],<data>`
+    """Data URL representation per RFC 2397.
 
-    e.g. data:text/plain;charset=UTF-8;base64,SGVsbG8=
+    Format: data:[<mediatype>][;<parameter>][;base64],<data>
+    Example: data:text/plain;charset=UTF-8;base64,SGVsbG8=
     """
 
     mime_type: MIME_TYPE_TYPES
@@ -96,13 +97,12 @@ class DataURL(pydantic.BaseModel):
 
     @classmethod
     def is_data_url(cls, url: str) -> bool:
-        """
-        Return **True** iff *url* is syntactically a data-URL.
-        """
+        """Check if URL is a valid data URL."""
         return bool(DATA_URL_PATTERN.match(url))
 
     @classmethod
     def from_url(cls, url: str) -> "DataURL":
+        """Create DataURL from URL string."""
         mime_type, parameters, encoded, data = cls.__parse_url(url)
         return cls(
             mime_type=mime_type, parameters=parameters, encoded=encoded, data=data
@@ -116,6 +116,7 @@ class DataURL(pydantic.BaseModel):
         *,
         parameters: str | None = None,
     ) -> "DataURL":
+        """Create DataURL from raw data and MIME type."""
         if isinstance(raw_data, str):
             data = base64.b64encode(raw_data.encode("utf-8")).decode("utf-8")
         else:
@@ -125,6 +126,7 @@ class DataURL(pydantic.BaseModel):
 
     @property
     def url(self) -> str:
+        """Get the complete data URL string."""
         STRING_PATTERN = (
             "data:{mediatype}{might_semicolon_parameters}{semicolon_encoded},{data}"
         )
@@ -138,6 +140,7 @@ class DataURL(pydantic.BaseModel):
 
     @property
     def decoded_data(self) -> str:
+        """Get decoded data payload."""
         if self.encoded == "base64":
             return base64.b64decode(self.data).decode("utf-8")
         return self.data
@@ -149,18 +152,10 @@ class DataURL(pydantic.BaseModel):
         typing.Literal["base64"] | None,
         str,
     ]:
-        """
-        Parse *url* (which **must** be a data URL) and return a 4-tuple:
+        """Parse data URL into components.
 
-            (mime_type, parameters, encoded, data)
-
-        * **mime_type** – the media type as a string (defaults to ``text/plain``);
-        * **parameters** – dict of any ``;attr=value`` pairs (e.g. ``charset``);
-        * **encoded** – ``True`` if the ``;base64`` flag was present;
-        * **data** – the payload as raw *bytes* (already URL-unescaped and
-        Base-64-decoded if needed).
-
-        Raises ``ValueError`` if *url* is not a valid data URL.
+        Returns: (mime_type, parameters, encoded, data)
+        Raises: ValueError if URL is invalid.
         """
         m = DATA_URL_PATTERN.match(url)
         if not m:
@@ -183,6 +178,11 @@ class DataURL(pydantic.BaseModel):
 
 
 class Message(pydantic.BaseModel):
+    """Universal message format for AI interactions.
+
+    Supports text, data URLs, HTTP URLs, or lists of content.
+    """
+
     # Required fields
     role: typing.Literal["user", "assistant", "system", "developer", "tool"] | str
     content: typing.Union[
@@ -210,11 +210,13 @@ class Message(pydantic.BaseModel):
             | typing.Dict
         ),
     ) -> "Message":
+        """Create message from various input types."""
         raise NotImplementedError("Not implemented")
 
     def to_instructions(
         self, *, with_datetime: bool = False, tz: zoneinfo.ZoneInfo | str | None = None
     ) -> str:
+        """Format message as readable instructions."""
         _role = self.role
         _content = ""
         _dt: datetime.datetime | None = None
@@ -236,9 +238,11 @@ class Message(pydantic.BaseModel):
         ).strip()
 
     def to_responses_input_item(self) -> ResponseInputItemParam:
+        """Convert to OpenAI responses API format."""
         raise NotImplementedError("Not implemented")
 
     def to_chat_cmpl_message(self) -> ChatCompletionMessageParam:
+        """Convert to OpenAI chat completion format."""
         raise NotImplementedError("Not implemented")
 
 
@@ -248,6 +252,7 @@ def messages_to_instructions(
     with_datetime: bool = False,
     tz: zoneinfo.ZoneInfo | str | None = None,
 ) -> str:
+    """Format multiple messages as readable instructions."""
     return "\n\n".join(
         message.to_instructions(with_datetime=with_datetime, tz=tz)
         for message in messages
@@ -257,16 +262,19 @@ def messages_to_instructions(
 def messages_to_responses_input_items(
     messages: typing.List[Message],
 ) -> typing.List[ResponseInputItemParam]:
+    """Convert messages to OpenAI responses API format."""
     return [message.to_responses_input_item() for message in messages]
 
 
 def messages_to_chat_cmpl_messages(
     messages: typing.List[Message],
 ) -> typing.List[ChatCompletionMessageParam]:
+    """Convert messages to OpenAI chat completion format."""
     return [message.to_chat_cmpl_message() for message in messages]
 
 
 def _ensure_tz(tz: zoneinfo.ZoneInfo | str | None) -> zoneinfo.ZoneInfo:
+    """Ensure timezone is ZoneInfo object."""
     if tz is None:
         return zoneinfo.ZoneInfo("UTC")
     if not isinstance(tz, zoneinfo.ZoneInfo):

@@ -9,6 +9,7 @@ _counter = random.randint(0, 0xFFFFFF)  # start counter at random point
 
 
 def generate_object_id() -> str:
+    """Generate unique 24-character hex object ID."""
     global _counter
     timestamp = struct.pack(">I", int(time.time()))  # 4 bytes, big-endian
     random5 = os.urandom(5)  # 5 cryptographically-secure random bytes
