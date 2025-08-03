@@ -1,7 +1,12 @@
 import base64
+import datetime
 import pathlib
+import textwrap
+import time
 import typing
+import zoneinfo
 
+import jinja2
 import pydantic
 
 from universal_message._id import generate_object_id
@@ -106,5 +111,48 @@ class Message(pydantic.BaseModel):
     # Optional fields
     id: str = pydantic.Field(default_factory=generate_object_id)
     call_id: typing.Optional[str] = None
-    created_at: typing.Optional[int] = None
+    created_at: int = pydantic.Field(default_factory=lambda: int(time.time()))
     metadata: typing.Optional[typing.Dict[str, PRIMITIVE_TYPES]] = None
+
+    def to_instructions(
+        self, *, with_datetime: bool = False, tz: zoneinfo.ZoneInfo | str | None = None
+    ) -> str:
+        _role = self.role
+        _content = ""
+        _dt: datetime.datetime | None = None
+        if with_datetime:
+            _dt = datetime.datetime.fromtimestamp(self.created_at, _ensure_tz(tz))
+            _dt = _dt.replace(microsecond=0)
+        template = jinja2.Template(
+            textwrap.dedent(
+                """
+                {{ role }}:
+                {% if datetime %}[{{ datetime }}] {% endif %}{{ content }}
+                """
+            ).strip()
+        )
+        return template.render(
+            role=_role,
+            datetime=_dt.isoformat() if _dt else None,
+            content=_content,
+        ).strip()
+
+
+def messages_to_instructions(
+    messages: typing.List[Message],
+    *,
+    with_datetime: bool = False,
+    tz: zoneinfo.ZoneInfo | str | None = None,
+) -> str:
+    return "\n\n".join(
+        message.to_instructions(with_datetime=with_datetime, tz=tz)
+        for message in messages
+    )
+
+
+def _ensure_tz(tz: zoneinfo.ZoneInfo | str | None) -> zoneinfo.ZoneInfo:
+    if tz is None:
+        return zoneinfo.ZoneInfo("UTC")
+    if not isinstance(tz, zoneinfo.ZoneInfo):
+        return zoneinfo.ZoneInfo(tz)
+    return tz
