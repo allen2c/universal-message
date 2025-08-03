@@ -527,31 +527,97 @@ def return_response_output_message(
 def return_response_file_search_tool_call(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseFileSearchToolCallParam | None:
-    raise NotImplementedError("Not implemented")
+    if (
+        "id" not in message
+        or "queries" not in message
+        or "status" not in message
+        or "type" not in message
+    ):
+        return None
+    if message["status"] not in (
+        "in_progress",
+        "searching",
+        "completed",
+        "incomplete",
+        "failed",
+    ):
+        return None
+    if message["type"] != "file_search_call":
+        return None
+    return message  # type: ignore
 
 
 def return_response_computer_tool_call(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseComputerToolCallParam | None:
-    raise NotImplementedError()
+    if (
+        "id" not in message
+        or "action" not in message
+        or "call_id" not in message
+        or "pending_safety_checks" not in message
+        or "status" not in message
+        or "type" not in message
+    ):
+        return None
+    if message["type"] != "computer_call":
+        return None
+    if message["status"] not in ("in_progress", "completed", "incomplete"):
+        return None
+    return message  # type: ignore
 
 
 def return_response_computer_call_output(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ComputerCallOutput | None:
-    raise NotImplementedError()
+    if "call_id" not in message or "output" not in message or "type" not in message:
+        return None
+    if message["type"] != "computer_call_output":
+        return None
+    if "status" in message and message["status"] not in (
+        "in_progress",
+        "completed",
+        "incomplete",
+    ):
+        return None
+    return message  # type: ignore
 
 
 def return_response_function_web_search(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseFunctionWebSearchParam | None:
-    raise NotImplementedError()
+    if (
+        "id" not in message
+        or "action" not in message
+        or "status" not in message
+        or "type" not in message
+    ):
+        return None
+    if message["type"] != "web_search_call":
+        return None
+    if message["status"] not in ("in_progress", "searching", "completed", "failed"):
+        return None
+    return message  # type: ignore
 
 
 def return_response_function_tool_call(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseFunctionToolCallParam | None:
-    raise NotImplementedError()
+    if (
+        "arguments" not in message
+        or "call_id" not in message
+        or "name" not in message
+        or "type" not in message
+    ):
+        return None
+    if message["type"] != "function_call":
+        return None
+    if "status" in message and message["status"] not in (
+        "in_progress",
+        "completed",
+        "incomplete",
+    ):
+        return None
+    return message  # type: ignore
 
 
 def return_response_function_call_output(
