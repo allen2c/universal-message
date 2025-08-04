@@ -1,5 +1,6 @@
 import base64
 import datetime
+import json
 import logging
 import pathlib
 import re
@@ -316,15 +317,35 @@ class Message(pydantic.BaseModel):
             _content = [c["text"] for c in _content]
             return cls.model_validate(
                 {
+                    "id": m["id"],
                     "role": m["role"],
                     "content": _content,
                     "metadata": {"type": "ResponseOutputMessageParam"},
                 }
             )
         if m := return_response_file_search_tool_call(data):
-            raise NotImplementedError()
+            _q = "\n\n".join(m["queries"])
+            _r = "\n\n".join(
+                [r.get("text") or "" for r in m.get("results") or []]
+            ).strip()
+            return cls.model_validate(
+                {
+                    "id": m["id"],
+                    "role": "assistant",
+                    "content": _q + "\n\n" + _r,
+                    "metadata": {"type": "ResponseFileSearchToolCallParam"},
+                }
+            )
         if m := return_response_computer_tool_call(data):
-            raise NotImplementedError()
+            return cls.model_validate(
+                {
+                    "id": m["id"],
+                    "role": "assistant",
+                    "content": json.dumps(m["action"], ensure_ascii=False, default=str),
+                    "call_id": m["call_id"],
+                    "metadata": {"type": "ResponseComputerToolCallParam"},
+                }
+            )
         if m := return_response_computer_call_output(data):
             raise NotImplementedError()
         if m := return_response_function_web_search(data):
