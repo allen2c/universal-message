@@ -247,6 +247,9 @@ class DataURL(pydantic.BaseModel):
 
         return (mime_type, params, "base64" if encoded else None, raw)
 
+    def __str__(self) -> str:
+        return self.url
+
 
 MESSAGE_CONTENT_SIMPLE_TYPES: typing.TypeAlias = typing.Union[
     str, DataURL, pydantic.HttpUrl
@@ -906,16 +909,32 @@ def content_from_response_input_content_param(
     if content["type"] == "input_text":
         return content["text"]
     elif content["type"] == "input_image":
-        return pretty_repr(
-            content.get("file_id") or content.get("image_url"), max_string=127
-        ).strip("'\"")
+        _content = content.get("file_id") or content.get("image_url") or ""
+        try:
+            return DataURL.from_url(_content)
+        except ValueError:
+            pass
+        try:
+            return pydantic.HttpUrl(_content)
+        except pydantic.ValidationError:
+            pass
+        return _content
     elif content["type"] == "input_file":
-        return pretty_repr(
+        _content = (
             content.get("file_id")
             or content.get("file_url")
-            or content.get("file_data"),
-            max_string=127,
-        ).strip("'\"")
+            or content.get("file_data")
+            or ""
+        )
+        try:
+            return DataURL.from_url(_content)
+        except ValueError:
+            pass
+        try:
+            return pydantic.HttpUrl(_content)
+        except pydantic.ValidationError:
+            pass
+        return _content
     else:
         raise ValueError(f"Invalid content type: {content['type']}")
 
