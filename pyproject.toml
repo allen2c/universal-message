@@ -2,6 +2,7 @@
 authors = [{ name = "Allen Chou", email = "f1470891079@gmail.com" }]
 dependencies = [
   "dictpress (>=0.3.0)",
+  "durl-py (>=0.1.1)",
   "openai (>=1,<2)",
   "openai-agents (>=0.1.0,<1.0.0)",
   "pydantic (>=2)",
@@ -12,7 +13,7 @@ license = { text = "MIT" }
 name = "universal-message"
 readme = "README.md"
 requires-python = ">=3.11,<4"
-version = "0.1.0"
+version = "0.2.0"
 
 [project.urls]
 Homepage = "https://github.com/allen2c/universal-message"
