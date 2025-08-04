@@ -135,11 +135,7 @@ DATA_URL_PATTERN = re.compile(
 
 
 class DataURL(pydantic.BaseModel):
-    """Data URL representation per RFC 2397.
-
-    Format: data:[<media_type>][;<parameter>][;base64],<data>
-    Example: data:text/plain;charset=UTF-8;base64,SGVsbG8=
-    """
+    """Represents a Data URL (RFC 2397)."""
 
     mime_type: MIME_TYPE_TYPES
     parameters: str | None = None
@@ -159,7 +155,7 @@ class DataURL(pydantic.BaseModel):
             if not part:
                 continue
             if "=" not in part:
-                raise ValueError(f"Invalid parameter format for '{part}': missing '='")
+                raise ValueError(f"Invalid parameter format for '{part}': missing '=' ")
             key, value = part.split("=", 1)
             if not key.strip() or not value.strip():
                 raise ValueError(
@@ -233,11 +229,7 @@ class DataURL(pydantic.BaseModel):
         typing.Literal["base64"] | None,
         str,
     ]:
-        """Parse data URL into components.
-
-        Returns: (mime_type, parameters, encoded, data)
-        Raises: ValueError if URL is invalid.
-        """
+        """Parses a Data URL string into its components."""
         m = DATA_URL_PATTERN.match(url)
         if not m:
             raise ValueError("Not a valid data URL")
@@ -270,10 +262,7 @@ MESSAGE_CONTENT_TYPES: typing.TypeAlias = typing.Union[
 
 
 class Message(pydantic.BaseModel):
-    """Universal message format for AI interactions.
-
-    Supports text, data URLs, HTTP URLs, or lists of content.
-    """
+    """A universal message format for AI interactions."""
 
     # Required fields
     role: typing.Literal["user", "assistant", "system", "developer", "tool"] | str
@@ -595,6 +584,7 @@ class Message(pydantic.BaseModel):
 
     @property
     def content_str(self) -> str:
+        """Returns the string representation of the message content."""
         if isinstance(self.content, list):
             return "\n\n".join(
                 [
@@ -710,6 +700,7 @@ class Message(pydantic.BaseModel):
 def messages_from_any_items(
     items: typing.List[typing.Union[Message, str, DataURL, pydantic.BaseModel]],
 ) -> typing.List[Message]:
+    """Converts a list of items into a list of Message objects."""
     return [Message.from_any(item) for item in items]
 
 
@@ -743,6 +734,7 @@ def messages_to_chat_cmpl_messages(
 def is_response_input_message_content_list_param(
     content: typing.List[typing.Dict],
 ) -> bool:
+    """Checks if content is a list of response input message content parts."""
     if len(content) == 0:
         return False  # Empty list, invalid message content
     if any(
@@ -756,24 +748,28 @@ def is_response_input_message_content_list_param(
 
 
 def is_response_input_file_param(content: typing.Dict) -> bool:
+    """Checks if content is a response input file parameter."""
     if "type" in content and content["type"] == "input_file":
         return True
     return False
 
 
 def is_response_input_text_param(content: typing.Dict) -> bool:
+    """Checks if content is a response input text parameter."""
     if "type" in content and content["type"] == "input_text":
         return True
     return False
 
 
 def is_response_input_image_param(content: typing.Dict) -> bool:
+    """Checks if content is a response input image parameter."""
     if "type" in content and content["type"] == "input_image":
         return True
     return False
 
 
 def is_response_output_text_param(content: typing.Dict) -> bool:
+    """Checks if content is a response output text parameter."""
     if (
         "annotations" in content
         and "text" in content
@@ -794,6 +790,7 @@ def is_response_output_text_param(content: typing.Dict) -> bool:
 def return_response_easy_input_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> EasyInputMessageParam | None:
+    """Returns an EasyInputMessageParam if the message is a valid easy input message."""
     # Check required fields
     if "role" not in message or "content" not in message:
         return None
@@ -820,6 +817,7 @@ def return_response_easy_input_message(
 def return_response_input_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseInputMessageParam | None:
+    """Returns a ResponseInputMessageParam if the message is a valid input message."""
     # Check required fields
     if "role" not in message or "content" not in message:
         return None
@@ -842,6 +840,7 @@ def return_response_input_message(
 def return_response_output_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseOutputMessageParam | None:
+    """Returns a ResponseOutputMessageParam if the message is a valid output message."""
     if (
         "id" not in message
         or "content" not in message
@@ -868,6 +867,7 @@ def return_response_output_message(
 def return_response_file_search_tool_call(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseFileSearchToolCallParam | None:
+    """Returns a ResponseFileSearchToolCallParam if the message is a valid file search tool call."""  # noqa: E501
     if (
         "id" not in message
         or "queries" not in message
@@ -891,6 +891,7 @@ def return_response_file_search_tool_call(
 def return_response_computer_tool_call(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseComputerToolCallParam | None:
+    """Returns a ResponseComputerToolCallParam if the message is a valid computer tool call."""  # noqa: E501
     if (
         "id" not in message
         or "action" not in message
@@ -910,6 +911,7 @@ def return_response_computer_tool_call(
 def return_response_computer_call_output(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ComputerCallOutput | None:
+    """Returns a ComputerCallOutput if the message is a valid computer call output."""
     if "call_id" not in message or "output" not in message or "type" not in message:
         return None
     if message["type"] != "computer_call_output":
@@ -926,6 +928,7 @@ def return_response_computer_call_output(
 def return_response_function_web_search(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseFunctionWebSearchParam | None:
+    """Returns a ResponseFunctionWebSearchParam if the message is a valid function web search."""  # noqa: E501
     if (
         "id" not in message
         or "action" not in message
@@ -943,6 +946,7 @@ def return_response_function_web_search(
 def return_response_function_tool_call(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseFunctionToolCallParam | None:
+    """Returns a ResponseFunctionToolCallParam if the message is a valid function tool call."""  # noqa: E501
     if (
         "arguments" not in message
         or "call_id" not in message
@@ -964,6 +968,7 @@ def return_response_function_tool_call(
 def return_response_function_call_output(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> FunctionCallOutput | None:
+    """Returns a FunctionCallOutput if the message is a valid function call output."""  # noqa: E501
     if "call_id" not in message or "output" not in message or "type" not in message:
         return None
     if message["type"] != "function_call_output":
@@ -980,6 +985,7 @@ def return_response_function_call_output(
 def return_response_reasoning_item(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseReasoningItemParam | None:
+    """Returns a ResponseReasoningItemParam if the message is a valid reasoning item."""  # noqa: E501
     if "id" not in message or "summary" not in message or "type" not in message:
         return None
     if message["type"] != "reasoning":
@@ -996,6 +1002,7 @@ def return_response_reasoning_item(
 def return_response_image_generation_call(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ImageGenerationCall | None:
+    """Returns an ImageGenerationCall if the message is a valid image generation call."""  # noqa: E501
     if (
         "id" not in message
         or "result" not in message
@@ -1013,6 +1020,7 @@ def return_response_image_generation_call(
 def return_response_code_interpreter_tool_call(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseCodeInterpreterToolCallParam | None:
+    """Returns a ResponseCodeInterpreterToolCallParam if the message is a valid code interpreter tool call."""  # noqa: E501
     if (
         "id" not in message
         or "code" not in message
@@ -1038,6 +1046,7 @@ def return_response_code_interpreter_tool_call(
 def return_response_local_shell_call(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> LocalShellCall | None:
+    """Returns a LocalShellCall if the message is a valid local shell call."""
     if (
         "id" not in message
         or "action" not in message
@@ -1056,6 +1065,7 @@ def return_response_local_shell_call(
 def return_response_local_shell_call_output(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> LocalShellCallOutput | None:
+    """Returns a LocalShellCallOutput if the message is a valid local shell call output."""  # noqa: E501
     if "id" not in message or "output" not in message or "type" not in message:
         return None
     if message["type"] != "local_shell_call_output":
@@ -1072,6 +1082,7 @@ def return_response_local_shell_call_output(
 def return_response_mcp_list_tools(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> McpListTools | None:
+    """Returns an McpListTools if the message is a valid mcp list tools."""
     if (
         "id" not in message
         or "server_label" not in message
@@ -1087,6 +1098,7 @@ def return_response_mcp_list_tools(
 def return_response_mcp_approval_request(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> McpApprovalRequest | None:
+    """Returns an McpApprovalRequest if the message is a valid mcp approval request."""  # noqa: E501
     if (
         "id" not in message
         or "arguments" not in message
@@ -1103,6 +1115,7 @@ def return_response_mcp_approval_request(
 def return_response_mcp_approval_response(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> McpApprovalResponse | None:
+    """Returns an McpApprovalResponse if the message is a valid mcp approval response."""  # noqa: E501
     if (
         "approval_request_id" not in message
         or "approve" not in message
@@ -1115,6 +1128,7 @@ def return_response_mcp_approval_response(
 
 
 def return_response_mcp_call(message: OPENAI_MESSAGE_PARAM_TYPES) -> McpCall | None:
+    """Returns an McpCall if the message is a valid mcp call."""
     if (
         "id" not in message
         or "arguments" not in message
@@ -1131,6 +1145,7 @@ def return_response_mcp_call(message: OPENAI_MESSAGE_PARAM_TYPES) -> McpCall | N
 def return_response_item_reference(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ItemReference | None:
+    """Returns an ItemReference if the message is a valid item reference."""
     if "id" not in message or "type" not in message:
         return None
     if message["type"] != "item_reference":
@@ -1141,6 +1156,7 @@ def return_response_item_reference(
 def return_response_computer_tool_call_output_screenshot(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseComputerToolCallOutputScreenshotParam | None:
+    """Returns a ResponseComputerToolCallOutputScreenshotParam if the message is a valid computer tool call output screenshot."""  # noqa: E501
     if "type" not in message:
         return None
     if message["type"] != "computer_screenshot":
@@ -1153,6 +1169,7 @@ def return_response_computer_tool_call_output_screenshot(
 def return_chat_cmpl_tool_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionToolMessageParam | None:
+    """Returns a ChatCompletionToolMessageParam if the message is a valid tool message."""  # noqa: E501
     if (
         "content" not in message
         or "role" not in message
@@ -1167,6 +1184,7 @@ def return_chat_cmpl_tool_message(
 def return_chat_cmpl_user_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionUserMessageParam | None:
+    """Returns a ChatCompletionUserMessageParam if the message is a valid user message."""  # noqa: E501
     if "content" not in message or "role" not in message:
         return None
     if message["role"] != "user":
@@ -1177,6 +1195,7 @@ def return_chat_cmpl_user_message(
 def return_chat_cmpl_system_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionSystemMessageParam | None:
+    """Returns a ChatCompletionSystemMessageParam if the message is a valid system message."""  # noqa: E501
     if "content" not in message or "role" not in message:
         return None
     if message["role"] != "system":
@@ -1187,6 +1206,7 @@ def return_chat_cmpl_system_message(
 def return_chat_cmpl_function_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionFunctionMessageParam | None:
+    """Returns a ChatCompletionFunctionMessageParam if the message is a valid function message."""  # noqa: E501
     if "content" not in message or "name" not in message or "role" not in message:
         return None
     if message["role"] != "function":
@@ -1197,6 +1217,7 @@ def return_chat_cmpl_function_message(
 def return_chat_cmpl_assistant_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionAssistantMessageParam | None:
+    """Returns a ChatCompletionAssistantMessageParam if the message is a valid assistant message."""  # noqa: E501
     if "role" not in message:
         return None
     if message["role"] != "assistant":
@@ -1213,6 +1234,7 @@ def return_chat_cmpl_assistant_message(
 def return_chat_cmpl_developer_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionDeveloperMessageParam | None:
+    """Returns a ChatCompletionDeveloperMessageParam if the message is a valid developer message."""  # noqa: E501
     if "content" not in message or "role" not in message:
         return None
     if message["role"] != "developer":
@@ -1223,6 +1245,7 @@ def return_chat_cmpl_developer_message(
 def content_from_response_input_content_param(
     content: str | ResponseInputContentParam,
 ) -> MESSAGE_CONTENT_SIMPLE_TYPES:
+    """Extracts content from a response input content parameter."""
     if isinstance(content, str):
         return content
     if content["type"] == "input_text":
@@ -1253,12 +1276,14 @@ def content_from_response_input_content_param(
 def content_from_response_input_content_list_param(
     content: ResponseInputMessageContentListParam,
 ) -> MESSAGE_CONTENT_LIST_TYPES:
+    """Extracts content from a list of response input content parameters."""
     return [content_from_response_input_content_param(item) for item in content]
 
 
 def content_from_chat_cmpl_content_part_param(
     content: ChatCompletionContentPartParam,
 ) -> MESSAGE_CONTENT_SIMPLE_TYPES:
+    """Extracts content from a chat completion content part parameter."""
     if content["type"] == "text":
         return content["text"]
     elif content["type"] == "image_url":
@@ -1274,6 +1299,7 @@ def content_from_chat_cmpl_content_part_param(
 def content_from_chat_cmpl_content_part_param_list(
     content: typing.List[ChatCompletionContentPartParam],
 ) -> MESSAGE_CONTENT_LIST_TYPES:
+    """Extracts content from a list of chat completion content part parameters."""
     return [content_from_chat_cmpl_content_part_param(item) for item in content]
 
 
