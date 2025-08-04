@@ -1,16 +1,15 @@
-import base64
+# universal_message/__init__.py
 import datetime
 import json
 import logging
 import pathlib
-import re
 import textwrap
 import time
 import typing
-import urllib.parse
 import zoneinfo
 
 import agents
+import durl
 import jinja2
 import pydantic
 from openai.types.chat.chat_completion_assistant_message_param import (
@@ -85,7 +84,6 @@ from openai.types.responses.response_output_text_param import ResponseOutputText
 from openai.types.responses.response_reasoning_item_param import (
     ResponseReasoningItemParam,
 )
-from rich.pretty import pretty_repr
 
 from universal_message._id import generate_object_id
 
@@ -115,146 +113,7 @@ OPENAI_MESSAGE_PARAM_TYPES: typing.TypeAlias = typing.Union[
 ]
 
 
-DATA_URL_PATTERN = re.compile(
-    r"""
-    ^data:
-    (?P<media_type>[^;,]*)  # optional MIME type
-    (?:  # whole parameter section
-        ;  # ← semicolon stays here
-        (?P<params>
-            [^;,=]+=[^;,]*  # first attr=value
-            (?:;[^;,=]+=[^;,]*)*  # 0-n more ;attr=value
-        )
-    )?  # entire param list is optional
-    (?P<base64>;base64)?  # optional ;base64 flag
-    ,
-    (?P<payload>.*)  # everything after the first comma
-    \Z
-    """,
-    re.I | re.S | re.VERBOSE,
-)
-
-
-class DataURL(pydantic.BaseModel):
-    """Represents a Data URL (RFC 2397)."""
-
-    mime_type: MIME_TYPE_TYPES
-    parameters: str | None = None
-    encoded: typing.Literal["base64"] | None = "base64"
-    data: str
-
-    @pydantic.model_validator(mode="after")
-    def validate_parameters(self) -> typing.Self:
-        if self.parameters is None:
-            return self
-
-        if self.parameters.startswith(";"):
-            self.parameters = self.parameters.lstrip(";")
-
-        parts = self.parameters.split(";")
-        for part in parts:
-            if not part:
-                continue
-            if "=" not in part:
-                raise ValueError(f"Invalid parameter format for '{part}': missing '=' ")
-            key, value = part.split("=", 1)
-            if not key.strip() or not value.strip():
-                raise ValueError(
-                    f"Invalid parameter format for '{part}': empty key or value"
-                )
-        return self
-
-    @pydantic.model_serializer
-    def serialize_model(self) -> str:
-        return self.url
-
-    @classmethod
-    def is_data_url(cls, url: str) -> bool:
-        """Check if URL is a valid data URL."""
-        return bool(DATA_URL_PATTERN.match(url))
-
-    @classmethod
-    def from_url(cls, url: str) -> "DataURL":
-        """Create DataURL from URL string."""
-        mime_type, parameters, encoded, data = cls.__parse_url(url)
-        return cls(
-            mime_type=mime_type, parameters=parameters, encoded=encoded, data=data
-        )
-
-    @classmethod
-    def from_data(
-        cls,
-        mime_type: MIME_TYPE_TYPES,
-        raw_data: str | bytes,
-        *,
-        parameters: str | None = None,
-    ) -> "DataURL":
-        """Create DataURL from raw data and MIME type."""
-        if isinstance(raw_data, str):
-            data = base64.b64encode(raw_data.encode("utf-8")).decode("utf-8")
-        else:
-            data = base64.b64encode(raw_data).decode("utf-8")
-
-        return cls(mime_type=mime_type, parameters=parameters, data=data)
-
-    @property
-    def url(self) -> str:
-        """Get the complete data URL string."""
-        STRING_PATTERN = (
-            "data:{media_type}{might_semicolon_parameters}{semicolon_encoded},{data}"
-        )
-
-        return STRING_PATTERN.format(
-            media_type=self.mime_type,
-            might_semicolon_parameters=f";{self.parameters}" if self.parameters else "",
-            semicolon_encoded=f";{self.encoded}" if self.encoded else "",
-            data=self.data,
-        )
-
-    @property
-    def url_truncated(self) -> str:
-        """Get the truncated data URL string."""
-        return pretty_repr(self.url, max_string=127).strip("'\"")
-
-    @property
-    def decoded_data(self) -> str:
-        """Get decoded data payload."""
-        if self.encoded == "base64":
-            return base64.b64decode(self.data).decode("utf-8")
-        return self.data
-
-    @classmethod
-    def __parse_url(cls, url: str) -> typing.Tuple[
-        str,
-        str | None,
-        typing.Literal["base64"] | None,
-        str,
-    ]:
-        """Parses a Data URL string into its components."""
-        m = DATA_URL_PATTERN.match(url)
-        if not m:
-            raise ValueError("Not a valid data URL")
-
-        mime_type: str = m.group("media_type") or "text/plain"
-
-        params: str | None = m.group("params")
-        try:
-            urllib.parse.parse_qsl(params)
-        except ValueError as e:
-            logger.warning(f"Invalid parameters in data URL, ignored: {pretty_repr(e)}")
-            params = None
-
-        encoded = bool(m.group("base64"))
-
-        raw: str = m.group("payload")
-
-        return (mime_type, params, "base64" if encoded else None, raw)
-
-    def __str__(self) -> str:
-        return self.url
-
-
-MESSAGE_CONTENT_SIMPLE_TYPES: typing.TypeAlias = typing.Union[str, DataURL]
+MESSAGE_CONTENT_SIMPLE_TYPES: typing.TypeAlias = typing.Union[str, durl.DataURL]
 MESSAGE_CONTENT_LIST_TYPES: typing.TypeAlias = typing.List[MESSAGE_CONTENT_SIMPLE_TYPES]
 MESSAGE_CONTENT_TYPES: typing.TypeAlias = typing.Union[
     MESSAGE_CONTENT_SIMPLE_TYPES,
@@ -283,7 +142,7 @@ class Message(pydantic.BaseModel):
         data: typing.Union[
             "Message",
             str,
-            DataURL,
+            durl.DataURL,
             pydantic.BaseModel,
             OPENAI_MESSAGE_PARAM_TYPES,
         ],
@@ -293,7 +152,7 @@ class Message(pydantic.BaseModel):
             return data
         if isinstance(data, str):
             return Message(role="user", content=data)
-        if isinstance(data, DataURL):
+        if isinstance(data, durl.DataURL):
             return Message(role="user", content=data)
         if isinstance(data, pydantic.BaseModel):
             return cls.model_validate_json(data.model_dump_json())
@@ -588,7 +447,7 @@ class Message(pydantic.BaseModel):
         """Returns the string representation of the message content."""
 
         def _content_str(c: MESSAGE_CONTENT_SIMPLE_TYPES) -> str:
-            if isinstance(c, DataURL):
+            if isinstance(c, durl.DataURL):
                 return c.url_truncated
             elif self.call_id:
                 if self.tool_name:
@@ -709,7 +568,11 @@ def messages_from_any_items(
     items: (
         typing.List[
             typing.Union[
-                Message, str, DataURL, pydantic.BaseModel, OPENAI_MESSAGE_PARAM_TYPES
+                Message,
+                str,
+                durl.DataURL,
+                pydantic.BaseModel,
+                OPENAI_MESSAGE_PARAM_TYPES,
             ]
         ]
         | typing.List[ResponseInputItemParam]
@@ -1271,7 +1134,7 @@ def content_from_response_input_content_param(
     elif content["type"] == "input_image":
         _content = content.get("file_id") or content.get("image_url") or ""
         try:
-            return DataURL.from_url(_content)
+            return durl.DataURL.from_url(_content)
         except ValueError:
             pass
         return _content
@@ -1283,7 +1146,7 @@ def content_from_response_input_content_param(
             or ""
         )
         try:
-            return DataURL.from_url(_content)
+            return durl.DataURL.from_url(_content)
         except ValueError:
             pass
         return _content
