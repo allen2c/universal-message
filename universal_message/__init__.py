@@ -113,7 +113,7 @@ OPENAI_MESSAGE_PARAM_TYPES: typing.TypeAlias = typing.Union[
 DATA_URL_PATTERN = re.compile(
     r"""
     ^data:
-    (?P<mediatype>[^;,]*)  # optional MIME type
+    (?P<media_type>[^;,]*)  # optional MIME type
     (?:  # whole parameter section
         ;  # ← semicolon stays here
         (?P<params>
@@ -133,7 +133,7 @@ DATA_URL_PATTERN = re.compile(
 class DataURL(pydantic.BaseModel):
     """Data URL representation per RFC 2397.
 
-    Format: data:[<mediatype>][;<parameter>][;base64],<data>
+    Format: data:[<media_type>][;<parameter>][;base64],<data>
     Example: data:text/plain;charset=UTF-8;base64,SGVsbG8=
     """
 
@@ -200,11 +200,11 @@ class DataURL(pydantic.BaseModel):
     def url(self) -> str:
         """Get the complete data URL string."""
         STRING_PATTERN = (
-            "data:{mediatype}{might_semicolon_parameters}{semicolon_encoded},{data}"
+            "data:{media_type}{might_semicolon_parameters}{semicolon_encoded},{data}"
         )
 
         return STRING_PATTERN.format(
-            mediatype=self.mime_type,
+            media_type=self.mime_type,
             might_semicolon_parameters=f";{self.parameters}" if self.parameters else "",
             semicolon_encoded=f";{self.encoded}" if self.encoded else "",
             data=self.data,
@@ -233,7 +233,7 @@ class DataURL(pydantic.BaseModel):
         if not m:
             raise ValueError("Not a valid data URL")
 
-        mime_type: str = m.group("mediatype") or "text/plain"
+        mime_type: str = m.group("media_type") or "text/plain"
 
         params: str | None = m.group("params")
         try:
