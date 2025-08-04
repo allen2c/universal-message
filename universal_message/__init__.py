@@ -76,6 +76,7 @@ from openai.types.responses.response_input_message_content_list_param import (
 from openai.types.responses.response_output_message_param import (
     ResponseOutputMessageParam,
 )
+from openai.types.responses.response_output_text_param import ResponseOutputTextParam
 from openai.types.responses.response_reasoning_item_param import (
     ResponseReasoningItemParam,
 )
@@ -251,9 +252,7 @@ class DataURL(pydantic.BaseModel):
         return self.url
 
 
-MESSAGE_CONTENT_SIMPLE_TYPES: typing.TypeAlias = typing.Union[
-    str, DataURL, pydantic.HttpUrl
-]
+MESSAGE_CONTENT_SIMPLE_TYPES: typing.TypeAlias = typing.Union[str, DataURL]
 MESSAGE_CONTENT_LIST_TYPES: typing.TypeAlias = typing.List[MESSAGE_CONTENT_SIMPLE_TYPES]
 MESSAGE_CONTENT_TYPES: typing.TypeAlias = typing.Union[
     MESSAGE_CONTENT_SIMPLE_TYPES,
@@ -280,20 +279,12 @@ class Message(pydantic.BaseModel):
     @classmethod
     def from_any(
         cls,
-        data: (
-            str
-            | DataURL
-            | pydantic.HttpUrl
-            | pydantic.BaseModel
-            | OPENAI_MESSAGE_PARAM_TYPES
-        ),
+        data: str | DataURL | pydantic.BaseModel | OPENAI_MESSAGE_PARAM_TYPES,
     ) -> "Message":
         """Create message from various input types."""
         if isinstance(data, str):
             return Message(role="user", content=data)
         if isinstance(data, DataURL):
-            return Message(role="user", content=data)
-        if isinstance(data, pydantic.HttpUrl):
             return Message(role="user", content=data)
         if isinstance(data, pydantic.BaseModel):
             return cls.model_validate_json(data.model_dump_json())
@@ -303,11 +294,33 @@ class Message(pydantic.BaseModel):
                 if isinstance(m["content"], list)
                 else content_from_response_input_content_param(m["content"])
             )
-            return cls.model_validate({"role": m["role"], "content": _content})
+            return cls.model_validate(
+                {
+                    "role": m["role"],
+                    "content": _content,
+                    "metadata": {"type": "EasyInputMessageParam"},
+                }
+            )
         if m := return_response_input_message(data):
-            raise NotImplementedError()
+            _content = content_from_response_input_content_list_param(m["content"])
+            return cls.model_validate(
+                {
+                    "role": m["role"],
+                    "content": _content,
+                    "metadata": {"type": "ResponseInputMessageParam"},
+                }
+            )
         if m := return_response_output_message(data):
-            raise NotImplementedError()
+            _content = m["content"]
+            _content = typing.cast(typing.List[ResponseOutputTextParam], _content)
+            _content = [c["text"] for c in _content]
+            return cls.model_validate(
+                {
+                    "role": m["role"],
+                    "content": _content,
+                    "metadata": {"type": "ResponseOutputMessageParam"},
+                }
+            )
         if m := return_response_file_search_tool_call(data):
             raise NotImplementedError()
         if m := return_response_computer_tool_call(data):
@@ -914,10 +927,6 @@ def content_from_response_input_content_param(
             return DataURL.from_url(_content)
         except ValueError:
             pass
-        try:
-            return pydantic.HttpUrl(_content)
-        except pydantic.ValidationError:
-            pass
         return _content
     elif content["type"] == "input_file":
         _content = (
@@ -929,10 +938,6 @@ def content_from_response_input_content_param(
         try:
             return DataURL.from_url(_content)
         except ValueError:
-            pass
-        try:
-            return pydantic.HttpUrl(_content)
-        except pydantic.ValidationError:
             pass
         return _content
     else:
