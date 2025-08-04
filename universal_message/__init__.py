@@ -390,7 +390,7 @@ class Message(pydantic.BaseModel):
         if m := return_response_function_call_output(data):
             return cls.model_validate(
                 {
-                    "role": "assistant",
+                    "role": "tool",
                     "content": m["output"],
                     "call_id": m["call_id"],
                     "metadata": {"type": "FunctionCallOutput"},
@@ -586,19 +586,26 @@ class Message(pydantic.BaseModel):
     @property
     def content_str(self) -> str:
         """Returns the string representation of the message content."""
+
+        def _content_str(c: MESSAGE_CONTENT_SIMPLE_TYPES) -> str:
+            if isinstance(c, DataURL):
+                return c.url_truncated
+            elif self.call_id:
+                if self.tool_name:
+                    return (
+                        f"Tool Call ID: {self.call_id}\n"
+                        f"Tool Name: {self.tool_name}\n"
+                        f"Arguments: {self.arguments}"
+                    ).strip()
+                else:
+                    return f"Tool Call ID: {self.call_id}\nTool Output: {c}".strip()
+            else:
+                return str(c)
+
         if isinstance(self.content, list):
-            return "\n\n".join(
-                [
-                    c.url_truncated if isinstance(c, DataURL) else str(c)
-                    for c in self.content
-                ]
-            )
+            return "\n\n".join([_content_str(c) for c in self.content])
         else:
-            return (
-                self.content.url_truncated
-                if isinstance(self.content, DataURL)
-                else str(self.content)
-            )
+            return _content_str(self.content)
 
     def to_instructions(
         self, *, with_datetime: bool = False, tz: zoneinfo.ZoneInfo | str | None = None
