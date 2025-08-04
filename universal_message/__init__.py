@@ -10,6 +10,7 @@ import typing
 import urllib.parse
 import zoneinfo
 
+import agents
 import jinja2
 import pydantic
 from openai.types.chat.chat_completion_assistant_message_param import (
@@ -698,7 +699,17 @@ class Message(pydantic.BaseModel):
 
 
 def messages_from_any_items(
-    items: typing.List[typing.Union[Message, str, DataURL, pydantic.BaseModel]],
+    items: (
+        typing.List[
+            typing.Union[
+                Message, str, DataURL, pydantic.BaseModel, OPENAI_MESSAGE_PARAM_TYPES
+            ]
+        ]
+        | typing.List[ResponseInputItemParam]
+        | typing.List[ChatCompletionMessageParam]
+        | typing.List[agents.TResponseInputItem]
+        | typing.List[typing.Dict]
+    ),
 ) -> typing.List[Message]:
     """Converts a list of items into a list of Message objects."""
     return [Message.from_any(item) for item in items]
