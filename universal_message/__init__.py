@@ -15,6 +15,9 @@ import pydantic
 from openai.types.chat.chat_completion_assistant_message_param import (
     ChatCompletionAssistantMessageParam,
 )
+from openai.types.chat.chat_completion_content_part_param import (
+    ChatCompletionContentPartParam,
+)
 from openai.types.chat.chat_completion_developer_message_param import (
     ChatCompletionDeveloperMessageParam,
 )
@@ -212,6 +215,11 @@ class DataURL(pydantic.BaseModel):
         )
 
     @property
+    def url_truncated(self) -> str:
+        """Get the truncated data URL string."""
+        return pretty_repr(self.url, max_string=127).strip("'\"")
+
+    @property
     def decoded_data(self) -> str:
         """Get decoded data payload."""
         if self.encoded == "base64":
@@ -274,15 +282,25 @@ class Message(pydantic.BaseModel):
     # Optional fields
     id: str = pydantic.Field(default_factory=generate_object_id)
     call_id: typing.Optional[str] = None
+    tool_name: typing.Optional[str] = None
+    arguments: typing.Optional[str] = None
     created_at: int = pydantic.Field(default_factory=lambda: int(time.time()))
     metadata: typing.Optional[typing.Dict[str, PRIMITIVE_TYPES]] = None
 
     @classmethod
     def from_any(
         cls,
-        data: str | DataURL | pydantic.BaseModel | OPENAI_MESSAGE_PARAM_TYPES,
+        data: typing.Union[
+            "Message",
+            str,
+            DataURL,
+            pydantic.BaseModel,
+            OPENAI_MESSAGE_PARAM_TYPES,
+        ],
     ) -> "Message":
         """Create message from various input types."""
+        if isinstance(data, Message):
+            return data
         if isinstance(data, str):
             return Message(role="user", content=data)
         if isinstance(data, DataURL):
@@ -347,54 +365,257 @@ class Message(pydantic.BaseModel):
                 }
             )
         if m := return_response_computer_call_output(data):
-            raise NotImplementedError()
+            return cls.model_validate(
+                {
+                    "role": "assistant",
+                    "content": json.dumps(m["output"], ensure_ascii=False, default=str),
+                    "call_id": m["call_id"],
+                    "metadata": {"type": "ComputerCallOutput"},
+                }
+            )
         if m := return_response_function_web_search(data):
-            raise NotImplementedError()
+            return cls.model_validate(
+                {
+                    "id": m["id"],
+                    "role": "assistant",
+                    "content": json.dumps(m["action"], ensure_ascii=False, default=str),
+                    "metadata": {"type": "ResponseFunctionWebSearchParam"},
+                }
+            )
         if m := return_response_function_tool_call(data):
-            raise NotImplementedError()
+            return cls.model_validate(
+                {
+                    "role": "assistant",
+                    "content": json.dumps(
+                        {"name": m["name"], "arguments": m["arguments"]},
+                        ensure_ascii=False,
+                        default=str,
+                    ),
+                    "call_id": m["call_id"],
+                    "tool_name": m["name"],
+                    "arguments": m["arguments"],
+                    "metadata": {"type": "ResponseFunctionToolCallParam"},
+                }
+            )
         if m := return_response_function_call_output(data):
-            raise NotImplementedError()
+            return cls.model_validate(
+                {
+                    "role": "assistant",
+                    "content": m["output"],
+                    "call_id": m["call_id"],
+                    "metadata": {"type": "FunctionCallOutput"},
+                }
+            )
         if m := return_response_reasoning_item(data):
-            raise NotImplementedError()
+            _content = "\n\n".join([s["text"] for s in m["summary"]])
+            return cls.model_validate(
+                {
+                    "id": m["id"],
+                    "role": "assistant",
+                    "content": _content,
+                    "metadata": {"type": "ResponseReasoningItemParam"},
+                }
+            )
         if m := return_response_image_generation_call(data):
-            raise NotImplementedError()
+            return cls.model_validate(
+                {
+                    "id": m["id"],
+                    "role": "assistant",
+                    "content": m["result"] or "",
+                    "metadata": {"type": "ImageGenerationCall"},
+                }
+            )
         if m := return_response_code_interpreter_tool_call(data):
-            raise NotImplementedError()
+            _outputs = "\n\n".join(
+                [o.get("logs") or o.get("url") or "" for o in m.get("outputs") or []]
+            )
+            return cls.model_validate(
+                {
+                    "id": m["id"],
+                    "role": "assistant",
+                    "content": f"{m['code']}\n\n{_outputs}",
+                    "metadata": {"type": "ResponseCodeInterpreterToolCallParam"},
+                }
+            )
         if m := return_response_local_shell_call(data):
-            raise NotImplementedError()
+            return cls.model_validate(
+                {
+                    "id": m["id"],
+                    "role": "assistant",
+                    "content": json.dumps(m["action"], ensure_ascii=False, default=str),
+                    "call_id": m["call_id"],
+                    "metadata": {"type": "LocalShellCall"},
+                }
+            )
         if m := return_response_local_shell_call_output(data):
-            raise NotImplementedError()
+            return cls.model_validate(
+                {
+                    "id": m["id"],
+                    "role": "assistant",
+                    "content": m["output"],
+                    "metadata": {"type": "LocalShellCallOutput"},
+                }
+            )
         if m := return_response_mcp_list_tools(data):
-            raise NotImplementedError()
+            return cls.model_validate(
+                {
+                    "id": m["id"],
+                    "role": "assistant",
+                    "content": json.dumps(m["tools"], ensure_ascii=False, default=str),
+                    "metadata": {"type": "McpListTools"},
+                }
+            )
         if m := return_response_mcp_approval_request(data):
-            raise NotImplementedError()
+            return cls.model_validate(
+                {
+                    "id": m["id"],
+                    "role": "assistant",
+                    "content": json.dumps(
+                        {"name": m["name"], "arguments": m["arguments"]},
+                        ensure_ascii=False,
+                        default=str,
+                    ),
+                    "metadata": {"type": "McpApprovalRequest"},
+                }
+            )
         if m := return_response_mcp_approval_response(data):
-            raise NotImplementedError()
+            return cls.model_validate(
+                {
+                    "role": "assistant",
+                    "content": str(m["approve"]),
+                    "call_id": m["approval_request_id"],
+                    "metadata": {"type": "McpApprovalResponse"},
+                }
+            )
         if m := return_response_mcp_call(data):
-            raise NotImplementedError()
+            return cls.model_validate(
+                {
+                    "id": m["id"],
+                    "role": "assistant",
+                    "content": json.dumps(
+                        {"name": m["name"], "arguments": m["arguments"]},
+                        ensure_ascii=False,
+                        default=str,
+                    ),
+                    "metadata": {"type": "McpCall"},
+                }
+            )
         if m := return_response_item_reference(data):
-            raise NotImplementedError()
+            return cls.model_validate(
+                {
+                    "id": m["id"],
+                    "role": "assistant",
+                    "content": "",
+                    "metadata": {"type": "ItemReference"},
+                }
+            )
         if m := return_chat_cmpl_tool_message(data):
-            raise NotImplementedError()
+            return cls.model_validate(
+                {
+                    "role": "tool",
+                    "content": m["content"],
+                    "call_id": m["tool_call_id"],
+                    "metadata": {"type": "ChatCompletionToolMessageParam"},
+                }
+            )
         if m := return_chat_cmpl_user_message(data):
-            raise NotImplementedError()
+            _content = m["content"]
+            if isinstance(_content, list):
+                _content = content_from_chat_cmpl_content_part_param_list(_content)
+            return cls.model_validate(
+                {
+                    "role": "user",
+                    "content": _content,
+                    "metadata": {"type": "ChatCompletionUserMessageParam"},
+                }
+            )
         if m := return_chat_cmpl_system_message(data):
-            raise NotImplementedError()
+            return cls.model_validate(
+                {
+                    "role": "system",
+                    "content": m["content"],
+                    "metadata": {"type": "ChatCompletionSystemMessageParam"},
+                }
+            )
         if m := return_chat_cmpl_function_message(data):
-            raise NotImplementedError()
+            return cls.model_validate(
+                {
+                    "role": "function",
+                    "content": m["content"] or "",
+                    "metadata": {
+                        "type": "ChatCompletionFunctionMessageParam",
+                        "name": m["name"],
+                    },
+                }
+            )
         if m := return_chat_cmpl_assistant_message(data):
-            raise NotImplementedError()
+            if _tool_calls := m.get("tool_calls"):
+                _tool_call = list(_tool_calls)[0]  # Only one tool call is supported
+                _tool_call_id = _tool_call["id"]
+                _tool_call_name = _tool_call["function"]["name"]
+                _tool_call_args = _tool_call["function"]["arguments"]
+                _content = f"Tool Call ID: {_tool_call_id}\n"
+                _content += f"Tool Name: {_tool_call_name}\n"
+                _content += f"Arguments: {_tool_call_args}\n"
+                _content = _content.strip()
+                return cls.model_validate(
+                    {
+                        "role": "assistant",
+                        "content": _content,
+                        "call_id": _tool_call_id,
+                        "tool_name": _tool_call_name,
+                        "arguments": _tool_call_args,
+                        "metadata": {"type": "ChatCompletionAssistantMessageParam"},
+                    }
+                )
+            else:
+                _content = m.get("content") or ""
+                if isinstance(_content, list):
+                    _content = "\n\n".join(
+                        [c.get("text") or "" for c in _content]
+                    ).strip()
+
+                return cls.model_validate(
+                    {
+                        "role": "assistant",
+                        "content": _content,
+                        "metadata": {"type": "ChatCompletionAssistantMessageParam"},
+                    }
+                )
         if m := return_chat_cmpl_developer_message(data):
-            raise NotImplementedError()
+            return cls.model_validate(
+                {
+                    "role": "developer",
+                    "content": m["content"],
+                    "metadata": {"type": "ChatCompletionDeveloperMessageParam"},
+                }
+            )
 
         return cls.model_validate(data)
+
+    @property
+    def content_str(self) -> str:
+        if isinstance(self.content, list):
+            return "\n\n".join(
+                [
+                    c.url_truncated if isinstance(c, DataURL) else str(c)
+                    for c in self.content
+                ]
+            )
+        else:
+            return (
+                self.content.url_truncated
+                if isinstance(self.content, DataURL)
+                else str(self.content)
+            )
 
     def to_instructions(
         self, *, with_datetime: bool = False, tz: zoneinfo.ZoneInfo | str | None = None
     ) -> str:
         """Format message as readable instructions."""
         _role = self.role
-        _content = ""
+        _content = self.content_str
+
         _dt: datetime.datetime | None = None
         if with_datetime:
             _dt = datetime.datetime.fromtimestamp(self.created_at, _ensure_tz(tz))
@@ -415,11 +636,81 @@ class Message(pydantic.BaseModel):
 
     def to_responses_input_item(self) -> ResponseInputItemParam:
         """Convert to OpenAI responses API format."""
-        raise NotImplementedError("Not implemented")
+        _role = self.role.lower()
+        _content = self.content_str
+
+        if _role in ("user", "assistant", "system", "developer"):
+            if self.call_id or self.tool_name:
+                if not self.call_id:
+                    raise ValueError("Function tool call must have a call_id")
+                if not self.tool_name:
+                    raise ValueError("Function tool call must have a tool_name")
+                _args = self.arguments or "{}"
+                return ResponseFunctionToolCallParam(
+                    arguments=_args,
+                    call_id=self.call_id,
+                    name=self.tool_name,
+                    type="function_call",
+                )
+            else:
+                return EasyInputMessageParam(role=_role, content=_content)
+        elif _role in ("tool",):
+            if not self.call_id:
+                raise ValueError("Tool message must have a call_id")
+            return FunctionCallOutput(
+                call_id=self.call_id, output=_content, type="function_call_output"
+            )
+        else:
+            logger.warning(f"Not supported role '{_role}' would be converted to 'user'")
+            return EasyInputMessageParam(role="user", content=_content)
 
     def to_chat_cmpl_message(self) -> ChatCompletionMessageParam:
         """Convert to OpenAI chat completion format."""
-        raise NotImplementedError("Not implemented")
+        _role = self.role.lower()
+        _content = self.content_str
+
+        if _role in ("system",):
+            return ChatCompletionSystemMessageParam(role=_role, content=_content)
+        elif _role in ("developer",):
+            return ChatCompletionDeveloperMessageParam(role=_role, content=_content)
+        elif _role in ("user",):
+            return ChatCompletionUserMessageParam(role=_role, content=_content)
+        elif _role in ("assistant",):
+            if self.call_id or self.tool_name:
+                if not self.call_id:
+                    raise ValueError("Assistant message must have a call_id")
+                if not self.tool_name:
+                    raise ValueError("Assistant message must have a tool_name")
+                _tool = self.tool_name
+                _args = self.arguments or "{}"
+                return ChatCompletionAssistantMessageParam(
+                    role=_role,
+                    content=_content,
+                    tool_calls=[
+                        {
+                            "id": self.call_id,
+                            "function": {"name": _tool, "arguments": _args},
+                            "type": "function",
+                        }
+                    ],
+                )
+            else:
+                return ChatCompletionAssistantMessageParam(role=_role, content=_content)
+        elif _role in ("tool",):
+            if not self.call_id:
+                raise ValueError("Tool message must have a call_id")
+            return ChatCompletionToolMessageParam(
+                role=_role, content=_content, tool_call_id=self.call_id
+            )
+        else:
+            logger.warning(f"Not supported role '{_role}' would be converted to 'user'")
+            return ChatCompletionUserMessageParam(role="user", content=_content)
+
+
+def messages_from_any_items(
+    items: typing.List[typing.Union[Message, str, DataURL, pydantic.BaseModel]],
+) -> typing.List[Message]:
+    return [Message.from_any(item) for item in items]
 
 
 def messages_to_instructions(
@@ -847,12 +1138,6 @@ def return_response_item_reference(
     return message  # type: ignore
 
 
-def return_response_input_message_content_list(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
-) -> ResponseInputMessageContentListParam | None:
-    raise NotImplementedError()
-
-
 def return_response_computer_tool_call_output_screenshot(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseComputerToolCallOutputScreenshotParam | None:
@@ -969,6 +1254,27 @@ def content_from_response_input_content_list_param(
     content: ResponseInputMessageContentListParam,
 ) -> MESSAGE_CONTENT_LIST_TYPES:
     return [content_from_response_input_content_param(item) for item in content]
+
+
+def content_from_chat_cmpl_content_part_param(
+    content: ChatCompletionContentPartParam,
+) -> MESSAGE_CONTENT_SIMPLE_TYPES:
+    if content["type"] == "text":
+        return content["text"]
+    elif content["type"] == "image_url":
+        return content["image_url"]["url"]
+    elif content["type"] == "input_audio":
+        return content["input_audio"]["data"]
+    elif content["type"] == "file":
+        return content["file"].get("file_data") or content["file"].get("file_id") or ""
+    else:
+        raise ValueError(f"Invalid content type: {content['type']}")
+
+
+def content_from_chat_cmpl_content_part_param_list(
+    content: typing.List[ChatCompletionContentPartParam],
+) -> MESSAGE_CONTENT_LIST_TYPES:
+    return [content_from_chat_cmpl_content_part_param(item) for item in content]
 
 
 def _ensure_tz(tz: zoneinfo.ZoneInfo | str | None) -> zoneinfo.ZoneInfo:
