@@ -1,3 +1,4 @@
+# tests/conftest.py
 import datetime
 import typing
 import zoneinfo
@@ -28,13 +29,19 @@ def model_settings():
 
 
 @pytest.fixture(scope="module")
-def agent():
-    return agents.Agent(name="Test Agent")
+def agent(agents_tool_get_current_time: agents.FunctionTool):
+    return agents.Agent(name="Test Agent", tools=[agents_tool_get_current_time])
 
 
 @pytest.fixture(scope="module")
-def agents_run_config():
-    return agents.RunConfig(tracing_disabled=True)
+def agents_run_config(
+    chat_model: agents.OpenAIResponsesModel, model_settings: agents.ModelSettings
+):
+    return agents.RunConfig(
+        tracing_disabled=True,
+        model=chat_model,
+        model_settings=model_settings,
+    )
 
 
 @pytest.fixture(scope="module")
