@@ -126,7 +126,7 @@ class Message(pydantic.BaseModel):
 
     # Required fields
     role: typing.Literal["user", "assistant", "system", "developer", "tool"] | str
-    content: MESSAGE_CONTENT_TYPES
+    content: str  # I love simple definitions
 
     # Optional fields
     id: str = pydantic.Field(default_factory=generate_object_id)
@@ -153,249 +153,213 @@ class Message(pydantic.BaseModel):
         if isinstance(data, str):
             return Message(role="user", content=data)
         if isinstance(data, durl.DataURL):
-            return Message(role="user", content=data)
+            return Message(role="user", content=str(data))
         if isinstance(data, pydantic.BaseModel):
             return cls.model_validate_json(data.model_dump_json())
         if m := return_response_easy_input_message(data):
-            _content = (
-                content_from_response_input_content_list_param(m["content"])
-                if isinstance(m["content"], list)
-                else content_from_response_input_content_param(m["content"])
-            )
-            return cls.model_validate(
-                {
-                    "role": m["role"],
-                    "content": _content,
-                    "metadata": {"type": "EasyInputMessageParam"},
-                }
+            return cls(
+                role=m["role"],
+                content=response_input_content_to_str(m["content"]),
+                metadata={"type": "EasyInputMessageParam"},
             )
         if m := return_response_input_message(data):
-            _content = content_from_response_input_content_list_param(m["content"])
-            return cls.model_validate(
-                {
-                    "role": m["role"],
-                    "content": _content,
-                    "metadata": {"type": "ResponseInputMessageParam"},
-                }
+            return cls(
+                role=m["role"],
+                content=response_input_content_to_str(m["content"]),
+                metadata={"type": "ResponseInputMessageParam"},
             )
         if m := return_response_output_message(data):
-            _content = m["content"]
-            _content = typing.cast(typing.List[ResponseOutputTextParam], _content)
-            _content = [c["text"] for c in _content]
-            return cls.model_validate(
-                {
-                    "id": m["id"],
-                    "role": m["role"],
-                    "content": _content,
-                    "metadata": {"type": "ResponseOutputMessageParam"},
-                }
+            _content_items = m["content"]
+            _content_items = typing.cast(
+                typing.List[ResponseOutputTextParam], _content_items
+            )
+            _content = "\n\n".join([c["text"] for c in _content_items])
+            return cls(
+                id=m["id"],
+                role=m["role"],
+                content=_content,
+                metadata={"type": "ResponseOutputMessageParam"},
             )
         if m := return_response_file_search_tool_call(data):
             _q = "\n\n".join(m["queries"])
             _r = "\n\n".join(
                 [r.get("text") or "" for r in m.get("results") or []]
             ).strip()
-            return cls.model_validate(
-                {
-                    "id": m["id"],
-                    "role": "assistant",
-                    "content": _q + "\n\n" + _r,
-                    "metadata": {"type": "ResponseFileSearchToolCallParam"},
-                }
+            return cls(
+                id=m["id"],
+                role="assistant",
+                content=_q + "\n\n" + _r,
+                metadata={"type": "ResponseFileSearchToolCallParam"},
             )
         if m := return_response_computer_tool_call(data):
-            return cls.model_validate(
-                {
-                    "id": m["id"],
-                    "role": "assistant",
-                    "content": json.dumps(m["action"], ensure_ascii=False, default=str),
-                    "call_id": m["call_id"],
-                    "metadata": {"type": "ResponseComputerToolCallParam"},
-                }
+            return cls(
+                id=m["id"],
+                role="assistant",
+                content=json.dumps(m["action"], ensure_ascii=False, default=str),
+                call_id=m["call_id"],
+                metadata={"type": "ResponseComputerToolCallParam"},
             )
         if m := return_response_computer_call_output(data):
-            return cls.model_validate(
-                {
-                    "role": "assistant",
-                    "content": json.dumps(m["output"], ensure_ascii=False, default=str),
-                    "call_id": m["call_id"],
-                    "metadata": {"type": "ComputerCallOutput"},
-                }
+            return cls(
+                role="assistant",
+                content=json.dumps(m["output"], ensure_ascii=False, default=str),
+                call_id=m["call_id"],
+                metadata={"type": "ComputerCallOutput"},
             )
         if m := return_response_function_web_search(data):
-            return cls.model_validate(
-                {
-                    "id": m["id"],
-                    "role": "assistant",
-                    "content": json.dumps(m["action"], ensure_ascii=False, default=str),
-                    "metadata": {"type": "ResponseFunctionWebSearchParam"},
-                }
+            return cls(
+                id=m["id"],
+                role="assistant",
+                content=json.dumps(m["action"], ensure_ascii=False, default=str),
+                metadata={"type": "ResponseFunctionWebSearchParam"},
             )
         if m := return_response_function_tool_call(data):
-            return cls.model_validate(
-                {
-                    "role": "assistant",
-                    "content": json.dumps(
-                        {"name": m["name"], "arguments": m["arguments"]},
-                        ensure_ascii=False,
-                        default=str,
-                    ),
-                    "call_id": m["call_id"],
-                    "tool_name": m["name"],
-                    "arguments": m["arguments"],
-                    "metadata": {"type": "ResponseFunctionToolCallParam"},
-                }
+            return cls(
+                role="assistant",
+                content=json.dumps(
+                    {"name": m["name"], "arguments": m["arguments"]},
+                    ensure_ascii=False,
+                    default=str,
+                ),
+                call_id=m["call_id"],
+                tool_name=m["name"],
+                arguments=m["arguments"],
+                metadata={"type": "ResponseFunctionToolCallParam"},
             )
         if m := return_response_function_call_output(data):
-            return cls.model_validate(
-                {
-                    "role": "tool",
-                    "content": m["output"],
-                    "call_id": m["call_id"],
-                    "metadata": {"type": "FunctionCallOutput"},
-                }
+            return cls(
+                role="tool",
+                content=m["output"],
+                call_id=m["call_id"],
+                metadata={"type": "FunctionCallOutput"},
             )
         if m := return_response_reasoning_item(data):
             _content = "\n\n".join([s["text"] for s in m["summary"]])
-            return cls.model_validate(
-                {
-                    "id": m["id"],
-                    "role": "assistant",
-                    "content": _content,
-                    "metadata": {"type": "ResponseReasoningItemParam"},
-                }
+            return cls(
+                id=m["id"],
+                role="assistant",
+                content=_content,
+                metadata={"type": "ResponseReasoningItemParam"},
             )
         if m := return_response_image_generation_call(data):
-            return cls.model_validate(
-                {
-                    "id": m["id"],
-                    "role": "assistant",
-                    "content": m["result"] or "",
-                    "metadata": {"type": "ImageGenerationCall"},
-                }
+            return cls(
+                id=m["id"],
+                role="assistant",
+                content=m["result"] or "",
+                metadata={"type": "ImageGenerationCall"},
             )
         if m := return_response_code_interpreter_tool_call(data):
             _outputs = "\n\n".join(
                 [o.get("logs") or o.get("url") or "" for o in m.get("outputs") or []]
             )
-            return cls.model_validate(
-                {
-                    "id": m["id"],
-                    "role": "assistant",
-                    "content": f"{m['code']}\n\n{_outputs}",
-                    "metadata": {"type": "ResponseCodeInterpreterToolCallParam"},
-                }
+            return cls(
+                id=m["id"],
+                role="assistant",
+                content=f"{m['code']}\n\n{_outputs}",
+                metadata={"type": "ResponseCodeInterpreterToolCallParam"},
             )
         if m := return_response_local_shell_call(data):
-            return cls.model_validate(
-                {
-                    "id": m["id"],
-                    "role": "assistant",
-                    "content": json.dumps(m["action"], ensure_ascii=False, default=str),
-                    "call_id": m["call_id"],
-                    "metadata": {"type": "LocalShellCall"},
-                }
+            return cls(
+                id=m["id"],
+                role="assistant",
+                content=json.dumps(m["action"], ensure_ascii=False, default=str),
+                call_id=m["call_id"],
+                metadata={"type": "LocalShellCall"},
             )
         if m := return_response_local_shell_call_output(data):
-            return cls.model_validate(
-                {
-                    "id": m["id"],
-                    "role": "assistant",
-                    "content": m["output"],
-                    "metadata": {"type": "LocalShellCallOutput"},
-                }
+            return cls(
+                id=m["id"],
+                role="assistant",
+                content=m["output"],
+                metadata={"type": "LocalShellCallOutput"},
             )
         if m := return_response_mcp_list_tools(data):
-            return cls.model_validate(
-                {
-                    "id": m["id"],
-                    "role": "assistant",
-                    "content": json.dumps(m["tools"], ensure_ascii=False, default=str),
-                    "metadata": {"type": "McpListTools"},
-                }
+            return cls(
+                id=m["id"],
+                role="assistant",
+                content=json.dumps(m["tools"], ensure_ascii=False, default=str),
+                metadata={"type": "McpListTools"},
             )
         if m := return_response_mcp_approval_request(data):
-            return cls.model_validate(
-                {
-                    "id": m["id"],
-                    "role": "assistant",
-                    "content": json.dumps(
-                        {"name": m["name"], "arguments": m["arguments"]},
-                        ensure_ascii=False,
-                        default=str,
-                    ),
-                    "metadata": {"type": "McpApprovalRequest"},
-                }
+            return cls(
+                id=m["id"],
+                role="assistant",
+                content=json.dumps(
+                    {"name": m["name"], "arguments": m["arguments"]},
+                    ensure_ascii=False,
+                    default=str,
+                ),
+                metadata={"type": "McpApprovalRequest"},
             )
         if m := return_response_mcp_approval_response(data):
-            return cls.model_validate(
-                {
-                    "role": "assistant",
-                    "content": str(m["approve"]),
-                    "call_id": m["approval_request_id"],
-                    "metadata": {"type": "McpApprovalResponse"},
-                }
+            return cls(
+                role="assistant",
+                content=str(m["approve"]),
+                call_id=m["approval_request_id"],
+                metadata={"type": "McpApprovalResponse"},
             )
         if m := return_response_mcp_call(data):
-            return cls.model_validate(
-                {
-                    "id": m["id"],
-                    "role": "assistant",
-                    "content": json.dumps(
-                        {"name": m["name"], "arguments": m["arguments"]},
-                        ensure_ascii=False,
-                        default=str,
-                    ),
-                    "metadata": {"type": "McpCall"},
-                }
+            return cls(
+                id=m["id"],
+                role="assistant",
+                content=json.dumps(
+                    {"name": m["name"], "arguments": m["arguments"]},
+                    ensure_ascii=False,
+                    default=str,
+                ),
+                metadata={"type": "McpCall"},
             )
         if m := return_response_item_reference(data):
-            return cls.model_validate(
-                {
-                    "id": m["id"],
-                    "role": "assistant",
-                    "content": "",
-                    "metadata": {"type": "ItemReference"},
-                }
+            return cls(
+                id=m["id"],
+                role="assistant",
+                content="",
+                metadata={"type": "ItemReference"},
             )
         if m := return_chat_cmpl_tool_message(data):
-            return cls.model_validate(
-                {
-                    "role": "tool",
-                    "content": m["content"],
-                    "call_id": m["tool_call_id"],
-                    "metadata": {"type": "ChatCompletionToolMessageParam"},
-                }
+            _content = (
+                m["content"]
+                if isinstance(m["content"], str)
+                else chat_cmpl_content_part_to_str(list(m["content"]))
+            )
+            return cls(
+                role="tool",
+                content=chat_cmpl_content_part_to_str(_content),
+                call_id=m["tool_call_id"],
+                metadata={"type": "ChatCompletionToolMessageParam"},
             )
         if m := return_chat_cmpl_user_message(data):
-            _content = m["content"]
+            _content = (
+                m["content"]
+                if isinstance(m["content"], str)
+                else chat_cmpl_content_part_to_str(list(m["content"]))
+            )
             if isinstance(_content, list):
-                _content = content_from_chat_cmpl_content_part_param_list(_content)
-            return cls.model_validate(
-                {
-                    "role": "user",
-                    "content": _content,
-                    "metadata": {"type": "ChatCompletionUserMessageParam"},
-                }
+                _content = chat_cmpl_content_part_to_str(_content)
+            return cls(
+                role="user",
+                content=_content,
+                metadata={"type": "ChatCompletionUserMessageParam"},
             )
         if m := return_chat_cmpl_system_message(data):
-            return cls.model_validate(
-                {
-                    "role": "system",
-                    "content": m["content"],
-                    "metadata": {"type": "ChatCompletionSystemMessageParam"},
-                }
+            _content = (
+                m["content"]
+                if isinstance(m["content"], str)
+                else chat_cmpl_content_part_to_str(list(m["content"]))
+            )
+            return cls(
+                role="system",
+                content=_content,
+                metadata={"type": "ChatCompletionSystemMessageParam"},
             )
         if m := return_chat_cmpl_function_message(data):
-            return cls.model_validate(
-                {
-                    "role": "function",
-                    "content": m["content"] or "",
-                    "metadata": {
-                        "type": "ChatCompletionFunctionMessageParam",
-                        "name": m["name"],
-                    },
-                }
+            return cls(
+                role="function",
+                content=m["content"] or "",
+                metadata={
+                    "type": "ChatCompletionFunctionMessageParam",
+                    "name": m["name"],
+                },
             )
         if m := return_chat_cmpl_assistant_message(data):
             if _tool_calls := m.get("tool_calls"):
@@ -407,37 +371,36 @@ class Message(pydantic.BaseModel):
                 _content += f"Tool Name: {_tool_call_name}\n"
                 _content += f"Arguments: {_tool_call_args}\n"
                 _content = _content.strip()
-                return cls.model_validate(
-                    {
-                        "role": "assistant",
-                        "content": _content,
-                        "call_id": _tool_call_id,
-                        "tool_name": _tool_call_name,
-                        "arguments": _tool_call_args,
-                        "metadata": {"type": "ChatCompletionAssistantMessageParam"},
-                    }
+                return cls(
+                    role="assistant",
+                    content=_content,
+                    call_id=_tool_call_id,
+                    tool_name=_tool_call_name,
+                    arguments=_tool_call_args,
+                    metadata={"type": "ChatCompletionAssistantMessageParam"},
                 )
             else:
                 _content = m.get("content") or ""
-                if isinstance(_content, list):
-                    _content = "\n\n".join(
-                        [c.get("text") or "" for c in _content]
-                    ).strip()
-
-                return cls.model_validate(
-                    {
-                        "role": "assistant",
-                        "content": _content,
-                        "metadata": {"type": "ChatCompletionAssistantMessageParam"},
-                    }
+                _content = (
+                    _content
+                    if isinstance(_content, str)
+                    else "\n\n".join([c.get("text") or "" for c in _content]).strip()
+                )
+                return cls(
+                    role="assistant",
+                    content=_content,
+                    metadata={"type": "ChatCompletionAssistantMessageParam"},
                 )
         if m := return_chat_cmpl_developer_message(data):
-            return cls.model_validate(
-                {
-                    "role": "developer",
-                    "content": m["content"],
-                    "metadata": {"type": "ChatCompletionDeveloperMessageParam"},
-                }
+            _content = (
+                m["content"]
+                if isinstance(m["content"], str)
+                else chat_cmpl_content_part_to_str(list(m["content"]))
+            )
+            return cls(
+                role="developer",
+                content=_content,
+                metadata={"type": "ChatCompletionDeveloperMessageParam"},
             )
 
         return cls.model_validate(data)
@@ -1123,65 +1086,113 @@ def return_chat_cmpl_developer_message(
     return message  # type: ignore
 
 
-def content_from_response_input_content_param(
-    content: str | ResponseInputContentParam,
-) -> MESSAGE_CONTENT_SIMPLE_TYPES:
-    """Extracts content from a response input content parameter."""
+def response_input_content_to_str(
+    content: typing.Union[
+        str, ResponseInputContentParam, ResponseInputMessageContentListParam
+    ],
+) -> str:
+    def _input_content_param_to_str(content: ResponseInputContentParam) -> str:
+        _contents: typing.List[typing.Union[str, durl.DataURL]] = []
+        for _c in content:
+            if isinstance(_c, str):
+                return _c
+            if _c["type"] == "input_text":
+                _contents.append(_c["text"])
+            elif _c["type"] == "input_image":
+                if _image_url := _c.get("image_url"):
+                    if durl.DataURL.is_data_url(_image_url):
+                        _contents.append(durl.DataURL.from_url(_image_url))
+                    else:
+                        _contents.append(_image_url)
+                elif _file_id := _c.get("file_id"):
+                    _contents.append(_file_id)
+                else:
+                    logger.warning(f"Unhandled image content: {_c}")
+            elif _c["type"] == "input_file":
+                if _file_data := _c.get("file_data"):
+                    if durl.DataURL.is_data_url(_file_data):
+                        _contents.append(durl.DataURL.from_url(_file_data))
+                    else:
+                        _contents.append(_file_data)
+                elif _file_url := _c.get("file_url"):
+                    if durl.DataURL.is_data_url(_file_url):
+                        _contents.append(durl.DataURL.from_url(_file_url))
+                    else:
+                        _contents.append(_file_url)
+                elif _file_id := _c.get("file_id"):
+                    _contents.append(_file_id)
+                else:
+                    logger.warning(f"Unhandled file content: {_c}")
+            else:
+                logger.warning(f"Unhandled content: {_c}")
+        return "\n\n".join([str(_c) for _c in _contents])
+
     if isinstance(content, str):
         return content
-    if content["type"] == "input_text":
-        return content["text"]
-    elif content["type"] == "input_image":
-        _content = content.get("file_id") or content.get("image_url") or ""
-        try:
-            return durl.DataURL.from_url(_content)
-        except ValueError:
-            pass
-        return _content
-    elif content["type"] == "input_file":
-        _content = (
-            content.get("file_id")
-            or content.get("file_url")
-            or content.get("file_data")
-            or ""
-        )
-        try:
-            return durl.DataURL.from_url(_content)
-        except ValueError:
-            pass
-        return _content
+    elif isinstance(content, list):
+        return "\n\n".join([_input_content_param_to_str(_c) for _c in content])
     else:
-        raise ValueError(f"Invalid content type: {content['type']}")
+        return _input_content_param_to_str(content)
 
 
-def content_from_response_input_content_list_param(
-    content: ResponseInputMessageContentListParam,
-) -> MESSAGE_CONTENT_LIST_TYPES:
-    """Extracts content from a list of response input content parameters."""
-    return [content_from_response_input_content_param(item) for item in content]
+def chat_cmpl_content_part_to_str(
+    content: (
+        str
+        | ChatCompletionContentPartParam
+        | typing.List[ChatCompletionContentPartParam]
+    ),
+) -> str:
+    def _chat_cmpl_content_part_to_str(
+        content: ChatCompletionContentPartParam,
+    ) -> list[str]:
+        _contents: list[str] = []
+        if content["type"] == "text":
+            _contents.append(content["text"])
+        elif content["type"] == "image_url":
+            if durl.DataURL.is_data_url(content["image_url"]["url"]):
+                _contents.append(
+                    str(durl.DataURL.from_url(content["image_url"]["url"]))
+                )
+            else:
+                _contents.append(content["image_url"]["url"])
+        elif content["type"] == "input_audio":
+            _format: typing.Literal["wav", "mp3"] = content["input_audio"]["format"]
+            _mime_type = durl.MIMEType(
+                "audio/wav" if _format == "wav" else "audio/mpeg"
+            )
+            _contents.append(
+                str(
+                    durl.DataURL(
+                        mime_type=_mime_type, data=content["input_audio"]["data"]
+                    )
+                )
+            )
+        elif content["type"] == "file":
+            if "file_data" in content["file"]:
+                _contents.append(
+                    str(
+                        durl.DataURL(
+                            mime_type=durl.MIMEType("text/plain"),
+                            data=content["file"]["file_data"],
+                        )
+                    )
+                )
+            elif "file_id" in content["file"]:
+                _contents.append(content["file"]["file_id"])
+            else:
+                logger.warning(f"Unhandled file content: {content}")
+        else:
+            raise ValueError(f"Invalid content type: {content['type']}")
+        return _contents
 
-
-def content_from_chat_cmpl_content_part_param(
-    content: ChatCompletionContentPartParam,
-) -> MESSAGE_CONTENT_SIMPLE_TYPES:
-    """Extracts content from a chat completion content part parameter."""
-    if content["type"] == "text":
-        return content["text"]
-    elif content["type"] == "image_url":
-        return content["image_url"]["url"]
-    elif content["type"] == "input_audio":
-        return content["input_audio"]["data"]
-    elif content["type"] == "file":
-        return content["file"].get("file_data") or content["file"].get("file_id") or ""
+    if isinstance(content, str):
+        return content
+    elif isinstance(content, list):
+        return "\n\n".join(
+            ["\n\n".join(_chat_cmpl_content_part_to_str(_c)) for _c in content]
+        ).strip()
     else:
-        raise ValueError(f"Invalid content type: {content['type']}")
-
-
-def content_from_chat_cmpl_content_part_param_list(
-    content: typing.List[ChatCompletionContentPartParam],
-) -> MESSAGE_CONTENT_LIST_TYPES:
-    """Extracts content from a list of chat completion content part parameters."""
-    return [content_from_chat_cmpl_content_part_param(item) for item in content]
+        return "\n\n".join(_chat_cmpl_content_part_to_str(content)).strip()
 
 
 def _ensure_tz(tz: zoneinfo.ZoneInfo | str | None) -> zoneinfo.ZoneInfo:
