@@ -1,3 +1,7 @@
+import datetime
+import typing
+import zoneinfo
+
 import agents
 import openai
 import pytest
@@ -31,3 +35,32 @@ def agent():
 @pytest.fixture(scope="module")
 def agents_run_config():
     return agents.RunConfig(tracing_disabled=True)
+
+
+@pytest.fixture(scope="module")
+def function_get_current_time():
+    async def get_current_time():
+        """Get the current time"""
+        dt = datetime.datetime.now(zoneinfo.ZoneInfo("Asia/Taipei"))
+        dt = dt.replace(microsecond=0)
+        return dt.isoformat()
+
+    return get_current_time
+
+
+@pytest.fixture(scope="module")
+def agents_tool_get_current_time(function_get_current_time: typing.Callable[..., str]):
+    return agents.function_tool(function_get_current_time)
+
+
+@pytest.fixture(scope="module")
+def chat_cmpl_tool_get_current_time():
+    from openai.types.chat.chat_completion_tool_param import ChatCompletionToolParam
+    from openai.types.shared_params.function_definition import FunctionDefinition
+
+    return ChatCompletionToolParam(
+        function=FunctionDefinition(
+            name="get_current_time", description="Get the current time", parameters={}
+        ),
+        type="function",
+    )
