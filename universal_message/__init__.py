@@ -405,36 +405,12 @@ class Message(pydantic.BaseModel):
 
         return cls.model_validate(data)
 
-    @property
-    def content_str(self) -> str:
-        """Returns the string representation of the message content."""
-
-        def _content_str(c: MESSAGE_CONTENT_SIMPLE_TYPES) -> str:
-            if isinstance(c, durl.DataURL):
-                return c.url_truncated
-            elif self.call_id:
-                if self.tool_name:
-                    return (
-                        f"Tool Call ID: {self.call_id}\n"
-                        f"Tool Name: {self.tool_name}\n"
-                        f"Arguments: {self.arguments}"
-                    ).strip()
-                else:
-                    return f"Tool Call ID: {self.call_id}\nTool Output: {c}".strip()
-            else:
-                return str(c)
-
-        if isinstance(self.content, list):
-            return "\n\n".join([_content_str(c) for c in self.content])
-        else:
-            return _content_str(self.content)
-
     def to_instructions(
         self, *, with_datetime: bool = False, tz: zoneinfo.ZoneInfo | str | None = None
     ) -> str:
         """Format message as readable instructions."""
         _role = self.role
-        _content = self.content_str
+        _content = self.content
 
         _dt: datetime.datetime | None = None
         if with_datetime:
@@ -457,7 +433,7 @@ class Message(pydantic.BaseModel):
     def to_responses_input_item(self) -> ResponseInputItemParam:
         """Convert to OpenAI responses API format."""
         _role = self.role.lower()
-        _content = self.content_str
+        _content = self.content
 
         if _role in ("user", "assistant", "system", "developer"):
             if self.call_id or self.tool_name:
@@ -487,7 +463,7 @@ class Message(pydantic.BaseModel):
     def to_chat_cmpl_message(self) -> ChatCompletionMessageParam:
         """Convert to OpenAI chat completion format."""
         _role = self.role.lower()
-        _content = self.content_str
+        _content = self.content
 
         if _role in ("system",):
             return ChatCompletionSystemMessageParam(role=_role, content=_content)
