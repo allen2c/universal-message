@@ -24,6 +24,7 @@ from openai.types.chat.chat_completion_developer_message_param import (
 from openai.types.chat.chat_completion_function_message_param import (
     ChatCompletionFunctionMessageParam,
 )
+from openai.types.chat.chat_completion_message import ChatCompletionMessage
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from openai.types.chat.chat_completion_system_message_param import (
     ChatCompletionSystemMessageParam,
@@ -143,6 +144,7 @@ class Message(pydantic.BaseModel):
             "Message",
             str,
             durl.DataURL,
+            ChatCompletionMessage,
             pydantic.BaseModel,
             OPENAI_MESSAGE_PARAM_TYPES,
         ],
@@ -154,6 +156,25 @@ class Message(pydantic.BaseModel):
             return Message(role="user", content=data)
         if isinstance(data, durl.DataURL):
             return Message(role="user", content=str(data))
+        if isinstance(data, ChatCompletionMessage):
+            if data.tool_calls:
+                _tool_call = data.tool_calls[0]  # Only one tool call is supported
+                return cls(
+                    role="assistant",
+                    content=(
+                        f"[tool_call:{_tool_call.function.name}]"
+                        + f"(#{_tool_call.id})"
+                        + f":{_tool_call.function.arguments}"
+                    ),
+                    call_id=_tool_call.id,
+                    tool_name=_tool_call.function.name,
+                    arguments=_tool_call.function.arguments,
+                )
+            else:
+                return cls(
+                    role="assistant",
+                    content=data.content or "",
+                )
         if isinstance(data, pydantic.BaseModel):
             return cls.model_validate_json(data.model_dump_json())
         if m := return_response_easy_input_message(data):
@@ -367,9 +388,10 @@ class Message(pydantic.BaseModel):
                 _tool_call_id = _tool_call["id"]
                 _tool_call_name = _tool_call["function"]["name"]
                 _tool_call_args = _tool_call["function"]["arguments"]
-                _content = f"Tool Call ID: {_tool_call_id}\n"
-                _content += f"Tool Name: {_tool_call_name}\n"
-                _content += f"Arguments: {_tool_call_args}\n"
+                _content = (
+                    f"[tool_call:{_tool_call_name}](#{_tool_call_id})"
+                    + f":{_tool_call_args}"
+                )
                 _content = _content.strip()
                 return cls(
                     role="assistant",

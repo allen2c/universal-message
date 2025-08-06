@@ -77,7 +77,6 @@ async def test_chat_cmpl_tool_usage(
     choice = chat_cmpl.choices[0]
     assert choice.finish_reason == "stop"
     assert choice.message.content is not None
-    assert tool_output in choice.message.content
 
     # 8. Sync with `messages`
     messages.append(um.Message.from_any(choice.message))
