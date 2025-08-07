@@ -77,6 +77,7 @@ async def test_chat_cmpl_tool_usage(
     choice = chat_cmpl.choices[0]
     assert choice.finish_reason == "stop"
     assert choice.message.content is not None
+    assert "current time" in choice.message.content.lower()
 
     # 8. Sync with `messages`
     messages.append(um.Message.from_any(choice.message))
@@ -88,11 +89,8 @@ async def test_chat_cmpl_tool_usage(
 
 @pytest.mark.asyncio
 async def test_agents_tool_usage(
-    agent: agents.Agent,
-    chat_model: agents.OpenAIResponsesModel,
-    model_settings: agents.ModelSettings,
-    agents_run_config: agents.RunConfig,
-    agents_tool_get_current_time: agents.FunctionTool,
+    agent: agents.Agent,  # agents_tool_get_current_time
+    agents_run_config: agents.RunConfig,  # chat_model, model_settings
 ):
     messages: typing.List[um.Message] = []
 
@@ -110,7 +108,7 @@ async def test_agents_tool_usage(
     assert "current time" in result.final_output.lower()
 
     # 4. Sync with `messages`
-    messages.extend(um.messages_from_any_items(result.to_input_list()))
+    messages[:] = um.messages_from_any_items(result.to_input_list())
     assert messages[-1].role == "assistant"
     assert "current time" in messages[-1].content.lower()
     assert len(messages) == 4
@@ -127,6 +125,6 @@ async def test_agents_tool_usage(
     assert isinstance(result.final_output, str)
 
     # 7. Sync with `messages`
-    messages.extend(um.messages_from_any_items(result.to_input_list()))
+    messages[:] = um.messages_from_any_items(result.to_input_list())
     assert messages[-1].role == "assistant"
     assert len(messages) == 6
