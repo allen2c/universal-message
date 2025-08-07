@@ -1,13 +1,8 @@
 # tests/test_universal_message.py
-"""Test compatibility of universal_message.Message objects with openai-agents chat and chat completion usages.
-
-All messages are stored in universal_message.Message objects.
-Convert to `typing.List[ResponseInputItemParam]` by `messages_to_responses_input_items` function when testing with openai-agents chat.
-Convert to `typing.List[ChatCompletionMessageParam]` by `messages_to_chat_cmpl_messages` function when testing with openai-agents chat.
-Convert back to `universal_message.Message` objects by `messages_from_any_items` function after LLM chat completion.
-All tests should call function `get_current_time` once.
-All tests should call llm twice including submitted function call output.
-"""  # noqa: E501
+"""Test universal_message.Message compatibility with OpenAI agents and chat completions.
+Tests message conversion between different formats and tool usage workflows.
+Each test validates LLM interactions with function calls and responses.
+"""
 
 import typing
 
@@ -26,6 +21,9 @@ async def test_chat_cmpl_tool_usage(
     function_get_current_time: typing.Callable[..., typing.Awaitable[str]],
     chat_cmpl_tool_get_current_time: ChatCompletionToolParam,
 ):
+    """Test OpenAI chat completion with tool usage and message conversion.
+    Validates message format conversion and tool call workflow.
+    """
     messages: typing.List[um.Message] = []
 
     # 1. LLM call: Ask current time
@@ -92,6 +90,9 @@ async def test_agents_tool_usage(
     agent: agents.Agent,  # agents_tool_get_current_time
     agents_run_config: agents.RunConfig,  # chat_model, model_settings
 ):
+    """Test agents SDK with tool usage and message conversion.
+    Validates message conversion to/from agents response format.
+    """
     messages: typing.List[um.Message] = []
 
     # 1. Agent run with asking current time

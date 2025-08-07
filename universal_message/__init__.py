@@ -709,7 +709,9 @@ def return_response_output_message(
 def return_response_file_search_tool_call(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseFileSearchToolCallParam | None:
-    """Returns a ResponseFileSearchToolCallParam if the message is a valid file search tool call."""  # noqa: E501
+    """Returns ResponseFileSearchToolCallParam if message is valid file search call.
+    Validates required fields and status values.
+    """
     if (
         "id" not in message
         or "queries" not in message
@@ -733,7 +735,9 @@ def return_response_file_search_tool_call(
 def return_response_computer_tool_call(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseComputerToolCallParam | None:
-    """Returns a ResponseComputerToolCallParam if the message is a valid computer tool call."""  # noqa: E501
+    """Returns ResponseComputerToolCallParam if message is valid computer call.
+    Validates required fields and status values.
+    """
     if (
         "id" not in message
         or "action" not in message
@@ -770,7 +774,9 @@ def return_response_computer_call_output(
 def return_response_function_web_search(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseFunctionWebSearchParam | None:
-    """Returns a ResponseFunctionWebSearchParam if the message is a valid function web search."""  # noqa: E501
+    """Returns ResponseFunctionWebSearchParam if message is valid web search.
+    Validates required fields and status values.
+    """
     if (
         "id" not in message
         or "action" not in message
@@ -788,7 +794,9 @@ def return_response_function_web_search(
 def return_response_function_tool_call(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseFunctionToolCallParam | None:
-    """Returns a ResponseFunctionToolCallParam if the message is a valid function tool call."""  # noqa: E501
+    """Returns ResponseFunctionToolCallParam if message is valid function call.
+    Validates required fields and status values.
+    """
     if (
         "arguments" not in message
         or "call_id" not in message
@@ -810,7 +818,9 @@ def return_response_function_tool_call(
 def return_response_function_call_output(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> FunctionCallOutput | None:
-    """Returns a FunctionCallOutput if the message is a valid function call output."""  # noqa: E501
+    """Returns FunctionCallOutput if message is valid function call output.
+    Validates required fields and status values.
+    """
     if "call_id" not in message or "output" not in message or "type" not in message:
         return None
     if message["type"] != "function_call_output":
@@ -827,7 +837,9 @@ def return_response_function_call_output(
 def return_response_reasoning_item(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseReasoningItemParam | None:
-    """Returns a ResponseReasoningItemParam if the message is a valid reasoning item."""  # noqa: E501
+    """Returns ResponseReasoningItemParam if message is valid reasoning item.
+    Validates required fields and status values.
+    """
     if "id" not in message or "summary" not in message or "type" not in message:
         return None
     if message["type"] != "reasoning":
@@ -1011,7 +1023,9 @@ def return_response_computer_tool_call_output_screenshot(
 def return_chat_cmpl_tool_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionToolMessageParam | None:
-    """Returns a ChatCompletionToolMessageParam if the message is a valid tool message."""  # noqa: E501
+    """Returns ChatCompletionToolMessageParam if message is valid tool message.
+    Validates required fields for tool messages.
+    """
     if (
         "content" not in message
         or "role" not in message
@@ -1026,7 +1040,9 @@ def return_chat_cmpl_tool_message(
 def return_chat_cmpl_user_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionUserMessageParam | None:
-    """Returns a ChatCompletionUserMessageParam if the message is a valid user message."""  # noqa: E501
+    """Returns ChatCompletionUserMessageParam if message is valid user message.
+    Validates required fields for user messages.
+    """
     if "content" not in message or "role" not in message:
         return None
     if message["role"] != "user":
@@ -1059,7 +1075,9 @@ def return_chat_cmpl_function_message(
 def return_chat_cmpl_assistant_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionAssistantMessageParam | None:
-    """Returns a ChatCompletionAssistantMessageParam if the message is a valid assistant message."""  # noqa: E501
+    """Returns ChatCompletionAssistantMessageParam if message is valid assistant.
+    Validates required fields for assistant messages.
+    """
     if "role" not in message:
         return None
     if message["role"] != "assistant":
@@ -1089,6 +1107,10 @@ def response_input_content_to_str(
         str, ResponseInputContentParam, ResponseInputMessageContentListParam
     ],
 ) -> str:
+    """Convert response input content to string format.
+    Handles text, image, and file content types.
+    """
+
     def _input_content_param_to_str(content: ResponseInputContentParam) -> str:
         _contents: typing.List[typing.Union[str, durl.DataURL]] = []
         for _c in content:
@@ -1140,6 +1162,10 @@ def chat_cmpl_content_part_to_str(
         | typing.List[ChatCompletionContentPartParam]
     ),
 ) -> str:
+    """Convert chat completion content parts to string format.
+    Handles text, image, audio, and file content types.
+    """
+
     def _chat_cmpl_content_part_to_str(
         content: ChatCompletionContentPartParam,
     ) -> list[str]:
