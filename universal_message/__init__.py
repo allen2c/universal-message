@@ -414,6 +414,45 @@ class Message(pydantic.BaseModel):
 
         return cls.model_validate(data)
 
+    @classmethod
+    def from_text(cls, text: str) -> typing.List["Message"]:
+        """Parse a simple role-tagged text into messages.
+        Lines starting with `user:`, `assistant:`, `system:`, or `developer:`
+        begin a new message.
+        """
+        messages = []
+        lines = text.strip().split("\n")
+
+        current_role = None
+        current_content: list[str] = []
+
+        for line in lines:
+            line = line.strip()
+
+            # Check if this line starts a new message
+            if line in ("user:", "assistant:", "system:", "developer:"):
+                # Emit message if we have a previous message
+                if current_role is not None and current_content:
+                    content = "\n".join(current_content).strip()
+                    if content:
+                        messages.append(cls(role=current_role, content=content))
+
+                # Start new message
+                current_role = line[:-1]  # Remove the colon
+                current_content = []
+
+            # Add to current message content
+            elif current_role is not None:
+                current_content.append(line)
+
+        # Handle the last message
+        if current_role is not None and current_content:
+            content = "\n".join(current_content).strip()
+            if content:
+                messages.append(cls(role=current_role, content=content))
+
+        return messages
+
     def to_instructions(
         self,
         *,
@@ -839,7 +878,7 @@ def return_response_reasoning_item(
 def return_response_image_generation_call(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ImageGenerationCall | None:
-    """Returns an ImageGenerationCall if the message is a valid image generation call."""  # noqa: E501
+    """Return ImageGenerationCall when the message is a valid image generation call."""
     if (
         "id" not in message
         or "result" not in message
@@ -857,7 +896,7 @@ def return_response_image_generation_call(
 def return_response_code_interpreter_tool_call(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseCodeInterpreterToolCallParam | None:
-    """Returns a ResponseCodeInterpreterToolCallParam if the message is a valid code interpreter tool call."""  # noqa: E501
+    """Return ResponseCodeInterpreterToolCallParam for a valid code-interpreter call."""
     if (
         "id" not in message
         or "code" not in message
@@ -902,7 +941,7 @@ def return_response_local_shell_call(
 def return_response_local_shell_call_output(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> LocalShellCallOutput | None:
-    """Returns a LocalShellCallOutput if the message is a valid local shell call output."""  # noqa: E501
+    """Return LocalShellCallOutput when the message is a valid local shell output."""
     if "id" not in message or "output" not in message or "type" not in message:
         return None
     if message["type"] != "local_shell_call_output":
@@ -919,7 +958,7 @@ def return_response_local_shell_call_output(
 def return_response_mcp_list_tools(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> McpListTools | None:
-    """Returns an McpListTools if the message is a valid mcp list tools."""
+    """Return McpListTools when the message is a valid MCP list-tools object."""
     if (
         "id" not in message
         or "server_label" not in message
@@ -935,7 +974,7 @@ def return_response_mcp_list_tools(
 def return_response_mcp_approval_request(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> McpApprovalRequest | None:
-    """Returns an McpApprovalRequest if the message is a valid mcp approval request."""  # noqa: E501
+    """Return McpApprovalRequest when the message is a valid MCP approval request."""
     if (
         "id" not in message
         or "arguments" not in message
@@ -965,7 +1004,7 @@ def return_response_mcp_approval_response(
 
 
 def return_response_mcp_call(message: OPENAI_MESSAGE_PARAM_TYPES) -> McpCall | None:
-    """Returns an McpCall if the message is a valid mcp call."""
+    """Return McpCall when the message is a valid MCP call."""
     if (
         "id" not in message
         or "arguments" not in message
@@ -982,7 +1021,7 @@ def return_response_mcp_call(message: OPENAI_MESSAGE_PARAM_TYPES) -> McpCall | N
 def return_response_item_reference(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ItemReference | None:
-    """Returns an ItemReference if the message is a valid item reference."""
+    """Return ItemReference when the message is a valid item reference."""
     if "id" not in message or "type" not in message:
         return None
     if message["type"] != "item_reference":
@@ -993,7 +1032,9 @@ def return_response_item_reference(
 def return_response_computer_tool_call_output_screenshot(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ResponseComputerToolCallOutputScreenshotParam | None:
-    """Returns a ResponseComputerToolCallOutputScreenshotParam if the message is a valid computer tool call output screenshot."""  # noqa: E501
+    """Return screenshot output param for a valid computer tool call output.
+    Accepts either `file_id` or `image_url`.
+    """
     if "type" not in message:
         return None
     if message["type"] != "computer_screenshot":
@@ -1036,7 +1077,7 @@ def return_chat_cmpl_user_message(
 def return_chat_cmpl_system_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionSystemMessageParam | None:
-    """Returns a ChatCompletionSystemMessageParam if the message is a valid system message."""  # noqa: E501
+    """Return ChatCompletionSystemMessageParam for a valid system message."""
     if "content" not in message or "role" not in message:
         return None
     if message["role"] != "system":
@@ -1047,7 +1088,7 @@ def return_chat_cmpl_system_message(
 def return_chat_cmpl_function_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionFunctionMessageParam | None:
-    """Returns a ChatCompletionFunctionMessageParam if the message is a valid function message."""  # noqa: E501
+    """Return ChatCompletionFunctionMessageParam for a valid function message."""
     if "content" not in message or "name" not in message or "role" not in message:
         return None
     if message["role"] != "function":
@@ -1077,7 +1118,7 @@ def return_chat_cmpl_assistant_message(
 def return_chat_cmpl_developer_message(
     message: OPENAI_MESSAGE_PARAM_TYPES,
 ) -> ChatCompletionDeveloperMessageParam | None:
-    """Returns a ChatCompletionDeveloperMessageParam if the message is a valid developer message."""  # noqa: E501
+    """Return ChatCompletionDeveloperMessageParam for a valid developer message."""
     if "content" not in message or "role" not in message:
         return None
     if message["role"] != "developer":
