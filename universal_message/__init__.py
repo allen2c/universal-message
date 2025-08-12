@@ -93,32 +93,20 @@ __version__ = pathlib.Path(__file__).parent.joinpath("VERSION").read_text().stri
 logger = logging.getLogger(__name__)
 
 PRIMITIVE_TYPES: typing.TypeAlias = typing.Union[str, int, float, bool, None]
-MIME_TYPE_TYPES: typing.TypeAlias = (
-    typing.Literal[
-        "text/plain",
-        "image/jpeg",
-        "image/png",
-        "image/gif",
-        "image/webp",
-        "image/svg+xml",
-        "audio/mpeg",
-        "audio/wav",
-        "audio/webm",
-    ]
-    | str
-)
+
 OPENAI_MESSAGE_PARAM_TYPES: typing.TypeAlias = typing.Union[
     ResponseInputItemParam,
     ChatCompletionMessageParam,
     typing.Dict,
 ]
 
-
-MESSAGE_CONTENT_SIMPLE_TYPES: typing.TypeAlias = typing.Union[str, durl.DataURL]
-MESSAGE_CONTENT_LIST_TYPES: typing.TypeAlias = typing.List[MESSAGE_CONTENT_SIMPLE_TYPES]
-MESSAGE_CONTENT_TYPES: typing.TypeAlias = typing.Union[
-    MESSAGE_CONTENT_SIMPLE_TYPES,
-    MESSAGE_CONTENT_LIST_TYPES,
+SUPPORTED_MESSAGE_TYPES: typing.TypeAlias = typing.Union[
+    "Message",
+    str,
+    durl.DataURL,
+    ChatCompletionMessage,
+    pydantic.BaseModel,
+    OPENAI_MESSAGE_PARAM_TYPES,
 ]
 
 
@@ -138,17 +126,7 @@ class Message(pydantic.BaseModel):
     metadata: typing.Optional[typing.Dict[str, PRIMITIVE_TYPES]] = None
 
     @classmethod
-    def from_any(
-        cls,
-        data: typing.Union[
-            "Message",
-            str,
-            durl.DataURL,
-            ChatCompletionMessage,
-            pydantic.BaseModel,
-            OPENAI_MESSAGE_PARAM_TYPES,
-        ],
-    ) -> "Message":
+    def from_any(cls, data: SUPPORTED_MESSAGE_TYPES) -> "Message":
         """Create message from various input types."""
         if isinstance(data, Message):
             return data
@@ -159,17 +137,20 @@ class Message(pydantic.BaseModel):
         if isinstance(data, ChatCompletionMessage):
             if data.tool_calls:
                 _tool_call = data.tool_calls[0]  # Only one tool call is supported
-                return cls(
-                    role="assistant",
-                    content=(
-                        f"[tool_call:{_tool_call.function.name}]"
-                        + f"(#{_tool_call.id})"
-                        + f":{_tool_call.function.arguments}"
-                    ),
-                    call_id=_tool_call.id,
-                    tool_name=_tool_call.function.name,
-                    arguments=_tool_call.function.arguments,
-                )
+                if _tool_call.type == "function":
+                    return cls(
+                        role="assistant",
+                        content=(
+                            f"[tool_call:{_tool_call.function.name}]"
+                            + f"(#{_tool_call.id})"
+                            + f":{_tool_call.function.arguments}"
+                        ),
+                        call_id=_tool_call.id,
+                        tool_name=_tool_call.function.name,
+                        arguments=_tool_call.function.arguments,
+                    )
+                else:
+                    raise ValueError(f"Unsupported tool call type: {_tool_call.type}")
             else:
                 return cls(
                     role="assistant",
@@ -385,22 +366,27 @@ class Message(pydantic.BaseModel):
         if m := return_chat_cmpl_assistant_message(data):
             if _tool_calls := m.get("tool_calls"):
                 _tool_call = list(_tool_calls)[0]  # Only one tool call is supported
-                _tool_call_id = _tool_call["id"]
-                _tool_call_name = _tool_call["function"]["name"]
-                _tool_call_args = _tool_call["function"]["arguments"]
-                _content = (
-                    f"[tool_call:{_tool_call_name}](#{_tool_call_id})"
-                    + f":{_tool_call_args}"
-                )
-                _content = _content.strip()
-                return cls(
-                    role="assistant",
-                    content=_content,
-                    call_id=_tool_call_id,
-                    tool_name=_tool_call_name,
-                    arguments=_tool_call_args,
-                    metadata={"type": "ChatCompletionAssistantMessageParam"},
-                )
+                if _tool_call["type"] == "function":
+                    _tool_call_id = _tool_call["id"]
+                    _tool_call_name = _tool_call["function"]["name"]
+                    _tool_call_args = _tool_call["function"]["arguments"]
+                    _content = (
+                        f"[tool_call:{_tool_call_name}](#{_tool_call_id})"
+                        + f":{_tool_call_args}"
+                    )
+                    _content = _content.strip()
+                    return cls(
+                        role="assistant",
+                        content=_content,
+                        call_id=_tool_call_id,
+                        tool_name=_tool_call_name,
+                        arguments=_tool_call_args,
+                        metadata={"type": "ChatCompletionAssistantMessageParam"},
+                    )
+                else:
+                    raise ValueError(
+                        f"Unsupported tool call type: {_tool_call['type']}"
+                    )
             else:
                 _content = m.get("content") or ""
                 _content = (
@@ -527,15 +513,8 @@ class Message(pydantic.BaseModel):
 
 def messages_from_any_items(
     items: (
-        typing.List[
-            typing.Union[
-                Message,
-                str,
-                durl.DataURL,
-                pydantic.BaseModel,
-                OPENAI_MESSAGE_PARAM_TYPES,
-            ]
-        ]
+        typing.List[SUPPORTED_MESSAGE_TYPES]
+        | typing.List[Message]
         | typing.List[ResponseInputItemParam]
         | typing.List[ChatCompletionMessageParam]
         | typing.List[agents.TResponseInputItem]

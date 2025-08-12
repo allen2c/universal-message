@@ -41,6 +41,7 @@ async def test_chat_cmpl_tool_usage(
     assert choice.message.tool_calls is not None
     assert len(choice.message.tool_calls) == 1
     tool_call = choice.message.tool_calls[0]
+    assert tool_call.type == "function"
     assert tool_call.function.name == "get_current_time"
 
     # 3. Sync with `messages`
