@@ -85,6 +85,7 @@ from openai.types.responses.response_output_text_param import ResponseOutputText
 from openai.types.responses.response_reasoning_item_param import (
     ResponseReasoningItemParam,
 )
+from rich.pretty import pretty_repr
 
 from universal_message._id import generate_object_id
 
@@ -414,7 +415,11 @@ class Message(pydantic.BaseModel):
         return cls.model_validate(data)
 
     def to_instructions(
-        self, *, with_datetime: bool = False, tz: zoneinfo.ZoneInfo | str | None = None
+        self,
+        *,
+        with_datetime: bool = False,
+        tz: zoneinfo.ZoneInfo | str | None = None,
+        max_string: int = 600,
     ) -> str:
         """Format message as readable instructions."""
         _role = self.role
@@ -427,15 +432,14 @@ class Message(pydantic.BaseModel):
         template = jinja2.Template(
             textwrap.dedent(
                 """
-                {{ role }}:
-                {% if datetime %}[{{ datetime }}] {% endif %}{{ content }}
-                """
+                [{% if dt %}{{ dt.strftime('%Y-%m-%dT%H:%M:%S') }} {% endif %}{{ role }}] {{ content }}
+                """  # noqa: E501
             ).strip()
         )
         return template.render(
             role=_role,
-            datetime=_dt.isoformat() if _dt else None,
-            content=_content,
+            dt=_dt,
+            content=pretty_repr(_content, max_string=max_string),
         ).strip()
 
     def to_responses_input_item(self) -> ResponseInputItemParam:
