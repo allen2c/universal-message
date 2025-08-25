@@ -108,7 +108,7 @@ def return_response_easy_input_message(
 
 
 def return_response_input_message(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ResponseInputMessageParam | None:
     """Returns a ResponseInputMessageParam if the message is a valid input message."""
     from universal_message.utils.is_response_input_message_content_list_param import (
@@ -135,7 +135,7 @@ def return_response_input_message(
 
 
 def return_response_output_message(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ResponseOutputMessageParam | None:
     """Returns a ResponseOutputMessageParam if the message is a valid output message."""
     from universal_message.utils.is_response_output_text_param import (
@@ -166,7 +166,7 @@ def return_response_output_message(
 
 
 def return_response_file_search_tool_call(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ResponseFileSearchToolCallParam | None:
     """Returns ResponseFileSearchToolCallParam if message is valid file search call.
     Validates required fields and status values.
@@ -192,7 +192,7 @@ def return_response_file_search_tool_call(
 
 
 def return_response_computer_tool_call(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ResponseComputerToolCallParam | None:
     """Returns ResponseComputerToolCallParam if message is valid computer call.
     Validates required fields and status values.
@@ -214,7 +214,7 @@ def return_response_computer_tool_call(
 
 
 def return_response_computer_call_output(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ComputerCallOutput | None:
     """Returns a ComputerCallOutput if the message is a valid computer call output."""
     if "call_id" not in message or "output" not in message or "type" not in message:
@@ -231,7 +231,7 @@ def return_response_computer_call_output(
 
 
 def return_response_function_web_search(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ResponseFunctionWebSearchParam | None:
     """Returns ResponseFunctionWebSearchParam if message is valid web search.
     Validates required fields and status values.
@@ -251,7 +251,7 @@ def return_response_function_web_search(
 
 
 def return_response_function_tool_call(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ResponseFunctionToolCallParam | None:
     """Returns ResponseFunctionToolCallParam if message is valid function call.
     Validates required fields and status values.
@@ -275,7 +275,7 @@ def return_response_function_tool_call(
 
 
 def return_response_function_call_output(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> FunctionCallOutput | None:
     """Returns FunctionCallOutput if message is valid function call output.
     Validates required fields and status values.
@@ -294,9 +294,9 @@ def return_response_function_call_output(
 
 
 def return_response_reasoning_item(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ResponseReasoningItemParam | None:
-    """Returns ResponseReasoningItemParam if message is valid reasoning item.
+    """Returns ResponseReasoningItemParam if the message is valid reasoning item.
     Validates required fields and status values.
     """
     if "id" not in message or "summary" not in message or "type" not in message:
@@ -313,7 +313,7 @@ def return_response_reasoning_item(
 
 
 def return_response_image_generation_call(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ImageGenerationCall | None:
     """Return ImageGenerationCall when the message is a valid image generation call."""
     if (
@@ -331,7 +331,7 @@ def return_response_image_generation_call(
 
 
 def return_response_code_interpreter_tool_call(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ResponseCodeInterpreterToolCallParam | None:
     """Return ResponseCodeInterpreterToolCallParam for a valid code-interpreter call."""
     if (
@@ -357,7 +357,7 @@ def return_response_code_interpreter_tool_call(
 
 
 def return_response_local_shell_call(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> LocalShellCall | None:
     """Returns a LocalShellCall if the message is a valid local shell call."""
     if (
@@ -376,7 +376,7 @@ def return_response_local_shell_call(
 
 
 def return_response_local_shell_call_output(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> LocalShellCallOutput | None:
     """Return LocalShellCallOutput when the message is a valid local shell output."""
     if "id" not in message or "output" not in message or "type" not in message:
@@ -393,7 +393,7 @@ def return_response_local_shell_call_output(
 
 
 def return_response_mcp_list_tools(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> McpListTools | None:
     """Return McpListTools when the message is a valid MCP list-tools object."""
     if (
@@ -409,7 +409,7 @@ def return_response_mcp_list_tools(
 
 
 def return_response_mcp_approval_request(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> McpApprovalRequest | None:
     """Return McpApprovalRequest when the message is a valid MCP approval request."""
     if (
@@ -426,9 +426,10 @@ def return_response_mcp_approval_request(
 
 
 def return_response_mcp_approval_response(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> McpApprovalResponse | None:
-    """Returns an McpApprovalResponse if the message is a valid mcp approval response."""  # noqa: E501
+    """Returns an McpApprovalResponse if the message is a valid
+    mcp approval response."""
     if (
         "approval_request_id" not in message
         or "approve" not in message
@@ -440,7 +441,7 @@ def return_response_mcp_approval_response(
     return message  # type: ignore
 
 
-def return_response_mcp_call(message: OPENAI_MESSAGE_PARAM_TYPES) -> McpCall | None:
+def return_response_mcp_call(message: "OPENAI_MESSAGE_PARAM_TYPES") -> McpCall | None:
     """Return McpCall when the message is a valid MCP call."""
     if (
         "id" not in message
@@ -456,7 +457,7 @@ def return_response_mcp_call(message: OPENAI_MESSAGE_PARAM_TYPES) -> McpCall | N
 
 
 def return_response_item_reference(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ItemReference | None:
     """Return ItemReference when the message is a valid item reference."""
     if "id" not in message or "type" not in message:
@@ -467,7 +468,7 @@ def return_response_item_reference(
 
 
 def return_response_computer_tool_call_output_screenshot(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ResponseComputerToolCallOutputScreenshotParam | None:
     """Return screenshot output param for a valid computer tool call output.
     Accepts either `file_id` or `image_url`.
@@ -482,7 +483,7 @@ def return_response_computer_tool_call_output_screenshot(
 
 
 def return_chat_cmpl_tool_message(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ChatCompletionToolMessageParam | None:
     """Returns ChatCompletionToolMessageParam if message is valid tool message.
     Validates required fields for tool messages.
@@ -499,7 +500,7 @@ def return_chat_cmpl_tool_message(
 
 
 def return_chat_cmpl_user_message(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ChatCompletionUserMessageParam | None:
     """Returns ChatCompletionUserMessageParam if message is valid user message.
     Validates required fields for user messages.
@@ -512,7 +513,7 @@ def return_chat_cmpl_user_message(
 
 
 def return_chat_cmpl_system_message(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ChatCompletionSystemMessageParam | None:
     """Return ChatCompletionSystemMessageParam for a valid system message."""
     if "content" not in message or "role" not in message:
@@ -523,7 +524,7 @@ def return_chat_cmpl_system_message(
 
 
 def return_chat_cmpl_function_message(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ChatCompletionFunctionMessageParam | None:
     """Return ChatCompletionFunctionMessageParam for a valid function message."""
     if "content" not in message or "name" not in message or "role" not in message:
@@ -534,7 +535,7 @@ def return_chat_cmpl_function_message(
 
 
 def return_chat_cmpl_assistant_message(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ChatCompletionAssistantMessageParam | None:
     """Returns ChatCompletionAssistantMessageParam if message is valid assistant.
     Validates required fields for assistant messages.
@@ -553,7 +554,7 @@ def return_chat_cmpl_assistant_message(
 
 
 def return_chat_cmpl_developer_message(
-    message: OPENAI_MESSAGE_PARAM_TYPES,
+    message: "OPENAI_MESSAGE_PARAM_TYPES",
 ) -> ChatCompletionDeveloperMessageParam | None:
     """Return ChatCompletionDeveloperMessageParam for a valid developer message."""
     if "content" not in message or "role" not in message:

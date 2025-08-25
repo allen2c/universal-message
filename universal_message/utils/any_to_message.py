@@ -273,7 +273,7 @@ def from_any(data: "SUPPORTED_MESSAGE_TYPES") -> "Message":
         )
     if m := return_chat_cmpl_function_message(data):
         return Message(
-            role="function",
+            role="tool",
             content=m["content"] or "",
             metadata={
                 "type": "ChatCompletionFunctionMessageParam",

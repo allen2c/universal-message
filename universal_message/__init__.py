@@ -67,7 +67,7 @@ class Message(pydantic.BaseModel):
     """A universal message format for AI interactions."""
 
     # Required fields
-    role: typing.Literal["user", "assistant", "system", "developer", "tool"] | str
+    role: typing.Literal["user", "assistant", "system", "developer", "tool"]
     """
     Role 'user' is for user input.
     Role 'assistant' is for assistant output or assistant tool call.
@@ -95,18 +95,14 @@ class Message(pydantic.BaseModel):
     metadata: typing.Optional[typing.Dict[str, PRIMITIVE_TYPES]] = None
 
     @pydantic.model_validator(mode="after")
-    def validate_role(self) -> typing.Self:
-        if might_role := str_or_none(self.role):
-            self.role = might_role
-        else:
-            raise ValueError(f"Invalid role input: {self.role}")
-        return self
-
-    @pydantic.model_validator(mode="after")
     def validate_content(self) -> typing.Self:
         if might_content := str_or_none(self.content):
             self.content = might_content
         else:
+            if self.call_id and self.tool_name and self.arguments:  # Tool call
+                self.content = (
+                    f"[tool_call:{self.tool_name}](#{self.call_id}):{self.arguments}"
+                )
             raise ValueError(f"Invalid content input: {self.content}")
 
         if self.content.startswith("data:") and not durl.DataURL.is_data_url(
@@ -133,43 +129,12 @@ class Message(pydantic.BaseModel):
         return from_any(data)
 
     @classmethod
-    def from_text(cls, text: str) -> typing.List["Message"]:
-        """Parse a simple role-tagged text into messages.
-        Lines starting with `user:`, `assistant:`, `system:`, or `developer:`
-        begin a new message.
-        """
-        messages = []
-        lines = text.strip().split("\n")
+    def from_text_of_oss(cls, text: str) -> typing.List["Message"]:
+        from universal_message.utils.messages_from_text_of_oss import (
+            messages_from_text_of_oss,
+        )
 
-        current_role = None
-        current_content: list[str] = []
-
-        for line in lines:
-            line = line.strip()
-
-            # Check if this line starts a new message
-            if line in ("user:", "assistant:", "system:", "developer:"):
-                # Emit message if we have a previous message
-                if current_role is not None and current_content:
-                    content = "\n".join(current_content).strip()
-                    if content:
-                        messages.append(cls(role=current_role, content=content))
-
-                # Start new message
-                current_role = line[:-1]  # Remove the colon
-                current_content = []
-
-            # Add to current message content
-            elif current_role is not None:
-                current_content.append(line)
-
-        # Handle the last message
-        if current_role is not None and current_content:
-            content = "\n".join(current_content).strip()
-            if content:
-                messages.append(cls(role=current_role, content=content))
-
-        return messages
+        return messages_from_text_of_oss(text)
 
     def to_instructions(
         self,
@@ -293,9 +258,10 @@ def messages_to_instructions(
     *,
     with_datetime: bool = False,
     tz: zoneinfo.ZoneInfo | str | None = None,
+    sep: str = "\n\n",
 ) -> str:
     """Format multiple messages as readable instructions."""
-    return "\n\n".join(
+    return sep.join(
         message.to_instructions(with_datetime=with_datetime, tz=tz)
         for message in messages
     )
