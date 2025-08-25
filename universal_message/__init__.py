@@ -86,6 +86,7 @@ from openai.types.responses.response_reasoning_item_param import (
     ResponseReasoningItemParam,
 )
 from rich.pretty import pretty_repr
+from str_or_none import str_or_none
 
 from universal_message._id import generate_object_id
 
@@ -116,7 +117,23 @@ class Message(pydantic.BaseModel):
 
     # Required fields
     role: typing.Literal["user", "assistant", "system", "developer", "tool"] | str
+    """
+    Role 'user' is for user input.
+    Role 'assistant' is for assistant output or assistant tool call.
+    Role 'system' is for system instructions.
+    Role 'developer' is for developer output.
+    Role 'tool' is for tool output.
+    """
+
     content: str  # I love simple definitions
+    """The field must be a plain text content or data URL"""
+
+    channel: typing.Optional[typing.Literal["analysis", "commentary", "final"]] = None
+    """
+    Channel 'analysis' is for thinking or reasoning.
+    Channel 'commentary' is for tool call or tool output.
+    Channel 'final' is for final output of the assistant.
+    """
 
     # Optional fields
     id: str = pydantic.Field(default_factory=generate_object_id)
@@ -125,6 +142,37 @@ class Message(pydantic.BaseModel):
     arguments: typing.Optional[str] = None
     created_at: int = pydantic.Field(default_factory=lambda: int(time.time()))
     metadata: typing.Optional[typing.Dict[str, PRIMITIVE_TYPES]] = None
+
+    @pydantic.model_validator(mode="after")
+    def validate_role(self) -> typing.Self:
+        if might_role := str_or_none(self.role):
+            self.role = might_role
+        else:
+            raise ValueError(f"Invalid role input: {self.role}")
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_content(self) -> typing.Self:
+        if might_content := str_or_none(self.content):
+            self.content = might_content
+        else:
+            raise ValueError(f"Invalid content input: {self.content}")
+
+        if self.content.startswith("data:") and not durl.DataURL.is_data_url(
+            self.content
+        ):
+            logger.warning(
+                "The content starts with 'data:' but is not a valid data URL: "
+                + f"{pretty_repr(self.content, max_string=100)}"
+            )
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_channel(self) -> typing.Self:
+        if not self.channel:
+            if self.role == "assistant" and self.call_id is not None:
+                self.channel = "commentary"
+        return self
 
     @classmethod
     def from_any(cls, data: SUPPORTED_MESSAGE_TYPES) -> "Message":
