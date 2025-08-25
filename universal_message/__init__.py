@@ -253,6 +253,14 @@ def messages_from_any_items(
     return [Message.from_any(item) for item in items]
 
 
+def messages_from_plaintext_of_gpt_oss(text: str) -> typing.List[Message]:
+    from universal_message.utils.messages_from_plaintext_of_gpt_oss import (
+        messages_from_plaintext_of_gpt_oss,
+    )
+
+    return messages_from_plaintext_of_gpt_oss(text)
+
+
 def messages_to_instructions(
     messages: typing.List[Message],
     *,
