@@ -3,6 +3,7 @@ authors = [{ name = "Allen Chou", email = "f1470891079@gmail.com" }]
 dependencies = [
   "dictpress (>=0.3.0)",
   "durl-py (>=0.1.1)",
+  "json-repair",
   "openai (>=1,<2)",
   "openai-agents (>=0.1.0,<1.0.0)",
   "pydantic (>=2)",
