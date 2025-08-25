@@ -129,12 +129,12 @@ class Message(pydantic.BaseModel):
         return from_any(data)
 
     @classmethod
-    def from_text_of_oss(cls, text: str) -> typing.List["Message"]:
-        from universal_message.utils.messages_from_text_of_oss import (
-            messages_from_text_of_oss,
+    def from_plaintext_of_gpt_oss(cls, text: str) -> typing.List["Message"]:
+        from universal_message.utils.messages_from_plaintext_of_gpt_oss import (
+            messages_from_plaintext_of_gpt_oss,
         )
 
-        return messages_from_text_of_oss(text)
+        return messages_from_plaintext_of_gpt_oss(text)
 
     def to_instructions(
         self,
